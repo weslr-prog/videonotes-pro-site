@@ -286,14 +286,53 @@ function exportNotes() {
         }
       };
 
+      const exportGroups = new Map();
+
       videoKeys.forEach((key) => {
         const notes = data[key] || [];
         if (notes.length === 0) return;
 
         const rawHeading = notes[0].videoTitle || key.replace(/^notes_/, '');
         const heading = cleanVideoTitle(rawHeading) || rawHeading;
-        const sectionUrl = getCleanVideoUrl(notes[0].url);
-        const noteTimes = notes
+
+        const firstNoteWithVideoId = notes.find((note) => note.videoId || extractVideoIdFromUrl(note.url));
+        const groupVideoId = firstNoteWithVideoId ? (firstNoteWithVideoId.videoId || extractVideoIdFromUrl(firstNoteWithVideoId.url)) : '';
+        const groupKey = groupVideoId
+          ? `video:${groupVideoId}`
+          : `title:${normalizeForSearch(heading)}`;
+
+        if (!exportGroups.has(groupKey)) {
+          exportGroups.set(groupKey, {
+            heading,
+            sectionUrl: '',
+            notes: []
+          });
+        }
+
+        const group = exportGroups.get(groupKey);
+        const firstCleanUrl = getCleanVideoUrl(notes[0].url);
+        if (!group.sectionUrl && firstCleanUrl) {
+          group.sectionUrl = firstCleanUrl;
+        }
+
+        notes.forEach((note) => {
+          const cleanUrl = getCleanVideoUrl(note.url);
+          if (!group.sectionUrl && cleanUrl) {
+            group.sectionUrl = cleanUrl;
+          }
+
+          group.notes.push(note);
+        });
+      });
+
+      const orderedGroups = Array.from(exportGroups.values()).sort((a, b) => {
+        const latestA = Math.max(...a.notes.map((note) => Number(note.id) || 0), 0);
+        const latestB = Math.max(...b.notes.map((note) => Number(note.id) || 0), 0);
+        return latestB - latestA;
+      });
+
+      orderedGroups.forEach((group) => {
+        const noteTimes = group.notes
           .map((note) => Number(note.id))
           .filter((value) => Number.isFinite(value) && value > 0)
           .sort((a, b) => a - b);
@@ -301,29 +340,31 @@ function exportNotes() {
         const firstNoteTime = noteTimes.length > 0 ? formatDateTime(noteTimes[0]) : 'Unknown date';
         const lastNoteTime = noteTimes.length > 0 ? formatDateTime(noteTimes[noteTimes.length - 1]) : 'Unknown date';
 
-        markdownSections.push(`## ${heading}`);
+        markdownSections.push(`## ${group.heading}`);
         markdownSections.push(`_First note: ${firstNoteTime}_`);
         if (noteTimes.length > 0 && firstNoteTime !== lastNoteTime) {
           markdownSections.push(`_Last note: ${lastNoteTime}_`);
         }
-        if (sectionUrl) {
-          markdownSections.push(`🔗 ${sectionUrl}`);
+        if (group.sectionUrl) {
+          markdownSections.push(`🔗 ${group.sectionUrl}`);
         }
         markdownSections.push('');
 
-        notes.forEach((note) => {
-          const label = note.timestampFormatted || '00:00';
-          const text = note.noteText || '';
-          const noteUrl = getCleanVideoUrl(note.url) || sectionUrl;
-          const timestampLink = buildTimestampLink(noteUrl, note.timestampSeconds);
+        group.notes
+          .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))
+          .forEach((note) => {
+            const label = note.timestampFormatted || '00:00';
+            const text = note.noteText || '';
+            const noteUrl = getCleanVideoUrl(note.url) || group.sectionUrl;
+            const timestampLink = buildTimestampLink(noteUrl, note.timestampSeconds);
 
-          if (timestampLink) {
-            markdownSections.push(`- [**${label}**](${timestampLink}) — ${text}`);
-            return;
-          }
+            if (timestampLink) {
+              markdownSections.push(`- [**${label}**](${timestampLink}) — ${text}`);
+              return;
+            }
 
-          markdownSections.push(`- **${label}** — ${text}`);
-        });
+            markdownSections.push(`- **${label}** — ${text}`);
+          });
 
         markdownSections.push('');
       });
