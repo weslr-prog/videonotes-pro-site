@@ -8,8 +8,8 @@
 - [ ] Notes are isolated per video (video ID key)
 
 ## 2) Freemium + Pro
-- [ ] Free tier allows notes on up to 3 unique videos
-- [ ] 4th unique video triggers upgrade prompt
+- [ ] Free tier allows unlimited note capture and save
+- [ ] Free tier import/export/search are limited to most recent 5 video sessions
 - [ ] Upgrade link opens ExtensionPay payment page
 - [ ] Sandbox paid user unlocks Pro behavior
 
