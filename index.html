@@ -1,5 +1,146 @@
-VideoNotes Pro
-A video timspamp note taking chrome extension
-“Coming soon on Chrome Web Store”, 
-Weslrufus@gmail.com, and 
-privacy policy placeholder.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoNotes Pro — Capture any moment. Never lose your place.</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --panel: #0f0f1e;
+      --card: #2a2a3e;
+      --text: #ffffff;
+      --muted: #b7b7c9;
+      --accent: #e94560;
+      --accent-hover: #d63a52;
+      --border: #3a3a4e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 16px 64px;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+    .brand { font-weight: 700; font-size: 20px; }
+    .nav a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 16px;
+      font-size: 14px;
+    }
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: 34px;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    .hero p { color: var(--muted); margin-bottom: 18px; }
+    .cta {
+      display: inline-block;
+      background: var(--accent);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .cta:hover { background: var(--accent-hover); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .card h3 { margin-bottom: 8px; font-size: 16px; }
+    .card p { color: var(--muted); font-size: 14px; }
+    .pricing {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .pricing ul { margin: 10px 0 0 18px; color: var(--muted); }
+    .footer {
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="nav">
+      <div class="brand">VideoNotes Pro</div>
+      <div>
+        <a href="privacy.html">Privacy Policy</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <h1>Capture any moment. Never lose your place.</h1>
+      <p>Take timestamped notes while watching YouTube, then jump back to exact moments instantly.</p>
+      <a class="cta" href="#" aria-disabled="true">Add to Chrome — Coming Soon</a>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>Instant Capture</h3>
+        <p>Capture current timestamp and video title in one click.</p>
+      </article>
+      <article class="card">
+        <h3>Jump Back Anytime</h3>
+        <p>Click any saved timestamp badge to seek right to that moment.</p>
+      </article>
+      <article class="card">
+        <h3>Export Notes</h3>
+        <p>Export your notes as Markdown for study sessions, projects, and research.</p>
+      </article>
+    </section>
+
+    <section class="pricing">
+      <h2>Pricing</h2>
+      <ul>
+        <li>Free: Up to 3 videos with notes</li>
+        <li>Pro: Unlimited videos + export features</li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      <span>© 2026 VideoNotes Pro</span>
+      <span><a href="privacy.html">Privacy Policy</a></span>
+      <span><a href="https://www.flaticon.com/free-icons/notepad" title="notepad icons">Notepad icons created by Flat Icons - Flaticon</a></span>
+    </footer>
+  </div>
+</body>
+</html>

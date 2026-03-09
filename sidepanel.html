@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoNotes Pro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="container" class="panel-container">
+    
+    <!-- Header -->
+    <header class="panel-header">
+      <h1 class="panel-title">VideoNotes Pro</h1>
+      <button id="settings-btn" class="settings-btn" title="Settings">
+        ⚙️
+      </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="panel-main">
+      
+      <!-- Capture Section -->
+      <section class="capture-section">
+        <button id="capture-btn" class="capture-btn">
+          📸 Capture Timestamp
+        </button>
+        <div id="current-timestamp" class="current-timestamp">
+          No timestamp captured
+        </div>
+      </section>
+
+      <!-- Note Input Section -->
+      <section class="note-input-section">
+        <textarea id="note-input" class="note-textarea" placeholder="Add a note..." maxlength="500"></textarea>
+        <button id="save-btn" class="save-btn">Save Note</button>
+      </section>
+
+      <!-- Notes List Section -->
+      <section class="notes-section">
+        <h2 class="notes-title">Your Notes</h2>
+        <div class="notes-tabs" role="tablist" aria-label="Notes view">
+          <button id="tab-current" class="notes-tab active" type="button" role="tab" aria-selected="true">Current Video</button>
+          <button id="tab-all" class="notes-tab" type="button" role="tab" aria-selected="false">All Notes</button>
+        </div>
+        <div class="notes-search">
+          <input id="notes-search-input" type="text" class="notes-search-input" placeholder="Search notes and videos...">
+          <button id="notes-search-clear" type="button" class="notes-search-clear">Clear</button>
+        </div>
+        <div id="notes-search-status" class="notes-search-status"></div>
+        <div class="notes-controls">
+          <button id="manage-notes-btn" type="button" class="notes-control-btn">Manage Notes</button>
+          <button id="collapse-all-btn" type="button" class="notes-control-btn">− All</button>
+          <button id="expand-all-btn" type="button" class="notes-control-btn">+ All</button>
+        </div>
+        <div id="manage-toolbar" class="manage-toolbar hidden">
+          <button id="delete-selected-notes-btn" type="button" class="manage-btn">Delete Selected Notes</button>
+          <button id="delete-selected-sessions-btn" type="button" class="manage-btn">Delete Selected Sessions</button>
+          <button id="clear-selection-btn" type="button" class="manage-btn">Clear Selection</button>
+        </div>
+        <div id="notes-list" class="notes-list">
+          <p class="empty-state">No notes yet. Capture a timestamp to get started!</p>
+        </div>
+      </section>
+
+      <input id="import-file-input" type="file" accept=".md,text/markdown,text/plain" hidden>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="panel-footer">
+      <button id="export-btn" class="footer-btn export-btn">📥 Export Notes</button>
+      <button id="import-btn" class="footer-btn import-btn">📤 Import Notes</button>
+      <a id="upgrade-link" href="#" class="footer-link upgrade-link">Upgrade to Pro</a>
+    </footer>
+
+  </div>
+
+  <script src="ExtPay.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
