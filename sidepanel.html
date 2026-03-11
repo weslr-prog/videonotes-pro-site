@@ -12,9 +12,12 @@
     <!-- Header -->
     <header class="panel-header">
       <h1 class="panel-title">VideoNotes Pro</h1>
-      <button id="settings-btn" class="settings-btn" title="Settings">
-        ⚙️
-      </button>
+      <div class="header-right">
+        <span id="unsaved-badge" class="unsaved-badge" style="display:none;"></span>
+        <button id="settings-btn" class="settings-btn" title="Settings">
+          ⚙️
+        </button>
+      </div>
     </header>
 
     <!-- Main Content -->
@@ -27,6 +30,10 @@
         </button>
         <div id="current-timestamp" class="current-timestamp">
           No timestamp captured
+        </div>
+        <div class="timestamp-adjustments">
+          <button id="timestamp-minus-btn" class="timestamp-adjust-btn" title="Subtract 1 second">−</button>
+          <button id="timestamp-plus-btn" class="timestamp-adjust-btn" title="Add 1 second">+</button>
         </div>
       </section>
 
@@ -63,14 +70,14 @@
         </div>
       </section>
 
-      <input id="import-file-input" type="file" accept=".md,text/markdown,text/plain" hidden>
+      <input id="import-file-input" type="file" accept=".md,text/markdown,text/plain" hidden multiple>
 
     </main>
 
     <!-- Footer -->
     <footer class="panel-footer">
-      <button id="export-btn" class="footer-btn export-btn">📥 Export Notes</button>
-      <button id="import-btn" class="footer-btn import-btn">📤 Import Notes</button>
+      <button id="export-btn" class="footer-btn export-btn" title="Export session — Shift+click to export all sessions">📥 Export Session</button>
+      <button id="import-btn" class="footer-btn import-btn" title="Import notes from file(s) — supports multiple files">📤 Import Notes</button>
       <a id="upgrade-link" href="#" class="footer-link upgrade-link">Upgrade to Pro</a>
     </footer>
 

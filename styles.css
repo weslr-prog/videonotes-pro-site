@@ -39,6 +39,29 @@ body {
   border-bottom: 1px solid #2a2a3e;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unsaved-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e94560;
+  background-color: rgba(233, 69, 96, 0.12);
+  border: 1px solid rgba(233, 69, 96, 0.35);
+  border-radius: 10px;
+  padding: 3px 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.unsaved-badge:hover {
+  background-color: rgba(233, 69, 96, 0.25);
+}
+
 .panel-title {
   font-size: 18px;
   font-weight: 600;
@@ -106,6 +129,38 @@ body {
   font-size: 13px;
   color: #e94560;
   font-weight: 500;
+}
+
+.timestamp-adjustments {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.timestamp-adjust-btn {
+  width: 40px;
+  height: 40px;
+  background-color: #2a2a3e;
+  color: #e94560;
+  border: 1px solid #3a3a4e;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timestamp-adjust-btn:hover {
+  background-color: #323242;
+  border-color: #e94560;
+  color: #ffffff;
+}
+
+.timestamp-adjust-btn:active {
+  transform: scale(0.95);
 }
 
 /* Note Input Section */
@@ -401,6 +456,28 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Session Headers */
+.session-header {
+  margin: 12px 0 8px 0;
+  padding: 8px 0;
+  border-top: 1px solid #2a2a3e;
+}
+
+.session-header:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+
+.session-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #b0b0c4;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+  padding: 4px 0;
 }
 
 .video-group {

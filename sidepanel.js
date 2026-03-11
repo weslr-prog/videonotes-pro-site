@@ -12,8 +12,74 @@ const FREE_EXPORT_IMPORT_VIDEO_LIMIT = 5;
 let notesSearchQuery = '';
 const EXTPAY_EXTENSION_ID = 'videonote-pro';
 let isOpeningPaymentPage = false;
+let sessionNotesSinceExport = 0;
 
 const extpay = typeof ExtPay === 'function' ? ExtPay(EXTPAY_EXTENSION_ID) : null;
+
+// ==================== SESSION MANAGEMENT ====================
+
+function getSessionLabel(timestamp) {
+  const noteDate = new Date(timestamp);
+  const today = new Date();
+  
+  // Reset time to midnight for comparison
+  today.setHours(0, 0, 0, 0);
+  noteDate.setHours(0, 0, 0, 0);
+  
+  const diffTime = today.getTime() - noteDate.getTime();
+  const diffDays = diffTime <= 0 ? 0 : Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays <= 7) return 'This Week';
+  if (diffDays <= 30) return 'This Month';
+  return 'Earlier';
+}
+
+function getExportFileName(sessionLabel) {
+  const now = new Date();
+  const datePart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const timePart = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+
+  if (!sessionLabel) {
+    return `videonotes-export-${datePart}-${timePart}.md`;
+  }
+
+  const cleanSession = String(sessionLabel).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return `videonotes-export-${cleanSession}-${datePart}-${timePart}.md`;
+}
+
+function groupNotesBySession(notes) {
+  const sessions = new Map();
+  
+  notes.forEach((note) => {
+    const sessionLabel = getSessionLabel(note.id);
+    if (!sessions.has(sessionLabel)) {
+      sessions.set(sessionLabel, []);
+    }
+    sessions.get(sessionLabel).push(note);
+  });
+  
+  return sessions;
+}
+
+function getSessionOrder(sessionLabel) {
+  const order = { 'Today': 0, 'Yesterday': 1, 'This Week': 2, 'This Month': 3, 'Earlier': 4 };
+  return order[sessionLabel] || 5;
+}
+
+function formatExportSessionDate(sessionLabel) {
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+  
+  if (sessionLabel === 'Today') return `Today — ${dateStr}`;
+  if (sessionLabel === 'Yesterday') {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return `Yesterday — ${yesterday.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}`;
+  }
+  return sessionLabel;
+}
 
 function extractVideoIdFromUrl(urlString) {
   if (!urlString) return '';
@@ -237,7 +303,18 @@ function openAttributionSettings() {
   });
 }
 
-function exportNotes() {
+function updateUnsavedIndicator() {
+  const badge = document.getElementById('unsaved-badge');
+  if (!badge) return;
+  if (sessionNotesSinceExport > 0) {
+    badge.textContent = `💾 ${sessionNotesSinceExport} unsaved`;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function exportNotes(exportAll = false, silent = false) {
   checkProStatus().then((isPro) => {
     chrome.storage.local.get(null, (allData) => {
       const data = allData || {};
@@ -259,6 +336,19 @@ function exportNotes() {
       }
 
       const markdownSections = [];
+
+      // Add header with export info
+      const now = new Date();
+      const exportDate = now.toLocaleString();
+      markdownSections.push('# 📹 VideoNotes Pro Export');
+      markdownSections.push('');
+      markdownSections.push(`_Exported: ${exportDate}_`);
+      if (!isPro && allVideoKeys.length > FREE_EXPORT_IMPORT_VIDEO_LIMIT) {
+        markdownSections.push(`_Note: Free tier limited to ${FREE_EXPORT_IMPORT_VIDEO_LIMIT} most recent video sessions_`);
+      }
+      markdownSections.push('');
+      markdownSections.push('---');
+      markdownSections.push('');
 
       const formatDateTime = (value) => {
         const date = new Date(value);
@@ -331,51 +421,131 @@ function exportNotes() {
         return latestB - latestA;
       });
 
+      // Group videos by session (Today, Yesterday, This Week, etc.)
+      const sessionGroups = new Map();
       orderedGroups.forEach((group) => {
-        const noteTimes = group.notes
-          .map((note) => Number(note.id))
-          .filter((value) => Number.isFinite(value) && value > 0)
-          .sort((a, b) => a - b);
-
-        const firstNoteTime = noteTimes.length > 0 ? formatDateTime(noteTimes[0]) : 'Unknown date';
-        const lastNoteTime = noteTimes.length > 0 ? formatDateTime(noteTimes[noteTimes.length - 1]) : 'Unknown date';
-
-        markdownSections.push(`## ${group.heading}`);
-        markdownSections.push(`_First note: ${firstNoteTime}_`);
-        if (noteTimes.length > 0 && firstNoteTime !== lastNoteTime) {
-          markdownSections.push(`_Last note: ${lastNoteTime}_`);
-        }
-        if (group.sectionUrl) {
-          markdownSections.push(`🔗 ${group.sectionUrl}`);
-        }
-        markdownSections.push('');
-
-        group.notes
-          .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))
-          .forEach((note) => {
-            const label = note.timestampFormatted || '00:00';
-            const text = note.noteText || '';
-            const noteUrl = getCleanVideoUrl(note.url) || group.sectionUrl;
-            const timestampLink = buildTimestampLink(noteUrl, note.timestampSeconds);
-
-            if (timestampLink) {
-              markdownSections.push(`- [**${label}**](${timestampLink}) — ${text}`);
-              return;
-            }
-
-            markdownSections.push(`- **${label}** — ${text}`);
-          });
-
-        markdownSections.push('');
+        group.notes.forEach((note) => {
+          const sessionLabel = getSessionLabel(note.id);
+          if (!sessionGroups.has(sessionLabel)) {
+            sessionGroups.set(sessionLabel, []);
+          }
+        });
       });
 
+      // Organize videos into sessions
+      const videosBySession = new Map();
+      Array.from(sessionGroups.keys()).forEach((session) => {
+        videosBySession.set(session, []);
+      });
+
+      orderedGroups.forEach((group) => {
+        const notesBySession = new Map();
+        
+        group.notes.forEach((note) => {
+          const sessionLabel = getSessionLabel(note.id);
+          if (!notesBySession.has(sessionLabel)) {
+            notesBySession.set(sessionLabel, []);
+          }
+          notesBySession.get(sessionLabel).push(note);
+        });
+
+        // Add group to each session it appears in
+        for (const [sessionLabel, notes] of notesBySession.entries()) {
+          const sessionNotes = notes;
+          videosBySession.get(sessionLabel).push({
+            ...group,
+            notes: sessionNotes
+          });
+        }
+      });
+
+      // Sort sessions by order (Today → Yesterday → This Week, etc.)
+      const sortedSessions = Array.from(videosBySession.entries())
+        .sort((a, b) => getSessionOrder(a[0]) - getSessionOrder(b[0]));
+
+      const nonEmptySessions = sortedSessions.filter((sessionEntry) => {
+        const videosInSession = sessionEntry[1] || [];
+        return videosInSession.length > 0;
+      });
+
+      // exportAll: true = all sessions, false = newest session only
+      const sessionsToExport = exportAll ? nonEmptySessions : (nonEmptySessions.length > 0 ? [nonEmptySessions[0]] : []);
+
+      // Add session groups to markdown
+      sessionsToExport.forEach((sessionEntry, sessionIndex) => {
+        const [sessionLabel, videosInSession] = sessionEntry;
+        
+        if (videosInSession.length === 0) return;
+
+        // Session header
+        markdownSections.push(`### 📅 ${formatExportSessionDate(sessionLabel)}`);
+        markdownSections.push('');
+
+        // Videos in this session
+        videosInSession.forEach((group, videoIndex) => {
+          const noteTimes = group.notes
+            .map((note) => Number(note.id))
+            .filter((value) => Number.isFinite(value) && value > 0)
+            .sort((a, b) => a - b);
+
+          const firstNoteTime = noteTimes.length > 0 ? formatDateTime(noteTimes[0]) : 'Unknown date';
+          const lastNoteTime = noteTimes.length > 0 ? formatDateTime(noteTimes[noteTimes.length - 1]) : 'Unknown date';
+          const noteCount = group.notes.length;
+
+          markdownSections.push(`#### 🎬 ${group.heading}`);
+          markdownSections.push('');
+          markdownSections.push(`**Notes:** ${noteCount}`);
+          if (group.sectionUrl) {
+            markdownSections.push(`**Video:** [Watch on YouTube](${group.sectionUrl})`);
+          }
+          markdownSections.push('');
+
+          group.notes
+            .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+            .forEach((note, noteIndex) => {
+              const label = note.timestampFormatted || '00:00';
+              const text = note.noteText || '';
+              const noteUrl = getCleanVideoUrl(note.url) || group.sectionUrl;
+              const timestampLink = buildTimestampLink(noteUrl, note.timestampSeconds);
+
+              if (timestampLink) {
+                markdownSections.push(`   ${noteIndex + 1}. [⏱️ ${label}](${timestampLink}) — ${text}`);
+                return;
+              }
+
+              markdownSections.push(`   ${noteIndex + 1}. ⏱️ **${label}** — ${text}`);
+            });
+
+          markdownSections.push('');
+        });
+
+        // Session divider
+        if (sessionIndex < sessionsToExport.length - 1) {
+          markdownSections.push('---');
+          markdownSections.push('');
+        }
+      });
+
+      // Add footer
+      markdownSections.push('---');
+      markdownSections.push('');
+      markdownSections.push('_Generated by VideoNotes Pro_');
+
       const markdown = markdownSections.join('\n').trim();
-      downloadTextFile('videonotes-export.md', markdown, 'text/markdown');
-      alert('Notes exported successfully as videonotes-export.md');
+      const exportSessionLabel = exportAll ? 'all-sessions' : (sessionsToExport.length > 0 ? sessionsToExport[0][0] : 'session');
+      const fileName = getExportFileName(exportSessionLabel);
+      downloadTextFile(fileName, markdown, 'text/markdown');
+
+      // Reset the unsaved indicator after a successful deliberate export
+      if (!silent) {
+        sessionNotesSinceExport = 0;
+        updateUnsavedIndicator();
+        alert(`Notes exported as ${fileName}`);
+      }
     });
   }).catch((error) => {
     console.error('Export failed:', error);
-    alert('Export failed. Please try again.');
+    if (!silent) alert('Export failed. Please try again.');
   });
 }
 
@@ -415,23 +585,79 @@ function parseImportedMarkdown(markdownText) {
       return;
     }
 
-    const headingMatch = trimmedLine.match(/^##\s+(.+)$/);
+    // Skip header and metadata lines
+    if (trimmedLine.startsWith('# ') || trimmedLine.startsWith('_Exported:') || trimmedLine.startsWith('_Note:') || trimmedLine === '---') {
+      return;
+    }
+
+    // Match video section headers (## or ## 🎬)
+    const headingMatch = trimmedLine.match(/^##\s*(?:🎬\s*)?(.+)$/);
     if (headingMatch) {
       currentSectionTitle = headingMatch[1].trim();
       currentSectionUrl = '';
       return;
     }
 
+    // Skip metadata lines (First/Last/Notes count/Video link)
+    if (trimmedLine.startsWith('**') && (trimmedLine.includes('Notes:') || trimmedLine.includes('First:') || trimmedLine.includes('Last:') || trimmedLine.includes('Video:'))) {
+      // Extract URL if it's a video link
+      if (trimmedLine.includes('Video:')) {
+        const urlMatch = trimmedLine.match(/\[(.*?)\]\((https?:\/\/[^)]+)\)/);
+        if (urlMatch) {
+          currentSectionUrl = getCleanVideoUrl(urlMatch[2]) || '';
+        }
+      }
+      return;
+    }
+
+    // Old format: 🔗 URL
     const sectionUrlMatch = trimmedLine.match(/^🔗\s+(https?:\/\/\S+)$/);
     if (sectionUrlMatch) {
       currentSectionUrl = getCleanVideoUrl(sectionUrlMatch[1]) || '';
       return;
     }
 
+    // Skip old metadata
     if (trimmedLine.startsWith('_First note:') || trimmedLine.startsWith('_Last note:')) {
       return;
     }
 
+    // NEW format: numbered list with emoji and link: 1. [⏱️ 01:23](url) — text
+    const newNumberedMatch = trimmedLine.match(/^\d+\.\s+\[⏱️\s*(\d{1,2}:\d{2}(?::\d{2})?)\]\((https?:\/\/[^)]+)\)\s+[—-]\s*(.*)$/);
+    if (newNumberedMatch) {
+      const timestampFormatted = newNumberedMatch[1];
+      const rawUrl = newNumberedMatch[2];
+      const noteText = newNumberedMatch[3] || '';
+      const cleanUrl = getCleanVideoUrl(rawUrl);
+
+      let seconds = parseTimestampToSeconds(timestampFormatted);
+      try {
+        const parsedUrl = new URL(rawUrl);
+        const tParam = Number(parsedUrl.searchParams.get('t'));
+        if (Number.isFinite(tParam) && tParam >= 0) {
+          seconds = Math.floor(tParam);
+        }
+      } catch (error) {
+      }
+
+      if (!currentSectionUrl && cleanUrl) {
+        currentSectionUrl = cleanUrl;
+      }
+
+      appendNote({
+        id: Date.now() + generatedIdOffset,
+        videoTitle: currentSectionTitle || 'Imported Video',
+        videoId: extractVideoIdFromUrl(cleanUrl || currentSectionUrl),
+        timestampSeconds: seconds,
+        timestampFormatted: timestampFormatted || formatSecondsToTimestamp(seconds),
+        noteText: noteText.trim(),
+        url: cleanUrl || currentSectionUrl
+      });
+      generatedIdOffset += 1;
+      return;
+    }
+
+    // OLD format: bullet with bold timestamp link: - [**01:23**](url) — text
     const linkedNoteMatch = trimmedLine.match(/^-\s+\[\*\*(\d{1,2}:\d{2}(?::\d{2})?)\*\*\]\((https?:\/\/[^)]+)\)\s+[—-]\s*(.*)$/);
     if (linkedNoteMatch) {
       const timestampFormatted = linkedNoteMatch[1];
@@ -466,6 +692,7 @@ function parseImportedMarkdown(markdownText) {
       return;
     }
 
+    // OLD format: legacy bullet without link: - **01:23** — text
     const legacyBoldMatch = trimmedLine.match(/^-\s+\*\*(\d{1,2}:\d{2}(?::\d{2})?)\*\*\s+[—-]\s*(.*)$/);
     const legacyPlainMatch = trimmedLine.match(/^-\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+[—-]\s*(.*)$/);
     const legacyMatch = legacyBoldMatch || legacyPlainMatch;
@@ -584,31 +811,32 @@ function mergeImportedNotes(parsedNotes, isPro, callback) {
 
 function handleImportedFileSelection(event) {
   const fileInput = event.target;
-  const file = fileInput.files && fileInput.files[0];
+  const files = fileInput.files ? Array.from(fileInput.files) : [];
 
-  if (!file) {
+  if (files.length === 0) {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    const content = typeof reader.result === 'string' ? reader.result : '';
-    const parsed = parseImportedMarkdown(content);
+  // Read all selected files, then merge everything in one pass
+  let filesRead = 0;
+  const allParsed = {};
 
-    if (Object.keys(parsed).length === 0) {
-      alert('No importable notes were found in that file.');
+  const onAllFilesRead = () => {
+    if (Object.keys(allParsed).length === 0) {
+      alert('No importable notes were found in the selected file(s).');
       fileInput.value = '';
       return;
     }
 
     checkProStatus().then((isPro) => {
-      mergeImportedNotes(parsed, isPro, (importedCount, videosUpdated, skippedVideos) => {
+      mergeImportedNotes(allParsed, isPro, (importedCount, videosUpdated, skippedVideos) => {
         if (importedCount === 0) {
-          alert('Import complete. No new notes were added (duplicates were skipped).');
+          alert('Import complete. No new notes were added (all were duplicates).');
         } else {
-          let message = `Import complete: ${importedCount} notes added across ${videosUpdated} videos.`;
+          const fileWord = files.length > 1 ? `${files.length} files` : '1 file';
+          let message = `Import complete (${fileWord}): ${importedCount} notes added across ${videosUpdated} videos.`;
           if (!isPro && skippedVideos > 0) {
-            message += ` ${skippedVideos} video session(s) were skipped on free plan. Upgrade to Pro for full import.`;
+            message += ` ${skippedVideos} session(s) skipped on free plan — upgrade to Pro for full import.`;
           }
           alert(message);
         }
@@ -622,12 +850,37 @@ function handleImportedFileSelection(event) {
     });
   };
 
-  reader.onerror = () => {
-    alert('Could not read the selected file. Please try again.');
-    fileInput.value = '';
-  };
+  files.forEach((file) => {
+    const reader = new FileReader();
 
-  reader.readAsText(file);
+    reader.onload = () => {
+      const content = typeof reader.result === 'string' ? reader.result : '';
+      const parsed = parseImportedMarkdown(content);
+
+      // Merge parsed notes from this file into allParsed
+      Object.keys(parsed).forEach((key) => {
+        if (!allParsed[key]) {
+          allParsed[key] = [];
+        }
+        allParsed[key].push(...parsed[key]);
+      });
+
+      filesRead += 1;
+      if (filesRead === files.length) {
+        onAllFilesRead();
+      }
+    };
+
+    reader.onerror = () => {
+      filesRead += 1;
+      console.error(`Could not read file: ${file.name}`);
+      if (filesRead === files.length) {
+        onAllFilesRead();
+      }
+    };
+
+    reader.readAsText(file);
+  });
 }
 
 function importNotes() {
@@ -724,16 +977,24 @@ function captureTimestamp() {
 
         console.log('Captured timestamp:', currentTimestampSeconds, 'from:', currentVideoTitle);
 
-        const minutes = Math.floor(currentTimestampSeconds / 60);
-        const seconds = Math.floor(currentTimestampSeconds % 60);
-        const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-        document.getElementById('current-timestamp').textContent = formatted;
+        updateTimestampDisplay();
       } else {
         console.error('Error capturing timestamp:', response);
       }
     });
   });
+}
+
+function updateTimestampDisplay() {
+  const minutes = Math.floor(currentTimestampSeconds / 60);
+  const seconds = Math.floor(currentTimestampSeconds % 60);
+  const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  document.getElementById('current-timestamp').textContent = formatted;
+}
+
+function adjustTimestamp(delta) {
+  currentTimestampSeconds = Math.max(0, currentTimestampSeconds + delta);
+  updateTimestampDisplay();
 }
 
 // ==================== PROMPT B: Save and Display Notes ====================
@@ -785,6 +1046,8 @@ function saveNote(callback) {
         
         chrome.storage.local.set({ [storageKey]: notes }, () => {
           console.log('Note saved successfully');
+          sessionNotesSinceExport += 1;
+          updateUnsavedIndicator();
           if (callback) callback();
         });
       });
@@ -1231,89 +1494,145 @@ function createNoteCard(note, isExternalNote) {
 }
 
 function renderAllNotesGrouped(notesList, notes) {
-  const groups = {};
+  // First group by video
+  const videoGroups = {};
 
   notes.forEach((note) => {
     const storageKey = getStorageKeyForNote(note);
-    if (!groups[storageKey]) {
-      groups[storageKey] = {
+    if (!videoGroups[storageKey]) {
+      videoGroups[storageKey] = {
         storageKey,
         videoTitle: note.videoTitle || 'Imported Video',
         notes: []
       };
     }
 
-    groups[storageKey].notes.push(note);
+    videoGroups[storageKey].notes.push(note);
   });
 
-  const orderedGroups = Object.values(groups).sort((a, b) => {
+  const orderedVideoGroups = Object.values(videoGroups).sort((a, b) => {
     const maxA = Math.max(...a.notes.map((note) => Number(note.id) || 0));
     const maxB = Math.max(...b.notes.map((note) => Number(note.id) || 0));
     return maxB - maxA;
   });
 
-  orderedGroups.forEach((group) => {
-    const groupContainer = document.createElement('div');
-    groupContainer.className = 'video-group';
-
-    const headerRow = document.createElement('div');
-    const isCollapsed = collapsedVideoGroups.has(group.storageKey);
-    headerRow.className = `video-group-header${isCollapsed ? ' is-collapsed' : ''}`;
-
-    const headerLeft = document.createElement('div');
-    headerLeft.className = 'video-group-header-left';
-
-    if (manageModeEnabled) {
-      const sessionCheckbox = document.createElement('input');
-      sessionCheckbox.type = 'checkbox';
-      sessionCheckbox.className = 'session-select-checkbox';
-      sessionCheckbox.checked = selectedSessionKeys.has(group.storageKey);
-      sessionCheckbox.addEventListener('change', () => {
-        if (sessionCheckbox.checked) {
-          selectedSessionKeys.add(group.storageKey);
-        } else {
-          selectedSessionKeys.delete(group.storageKey);
-        }
-      });
-      headerLeft.appendChild(sessionCheckbox);
-    }
-
-    const toggleButton = document.createElement('button');
-    toggleButton.className = 'video-group-toggle';
-    toggleButton.type = 'button';
-    toggleButton.textContent = isCollapsed ? '+' : '−';
-    toggleButton.addEventListener('click', () => {
-      if (collapsedVideoGroups.has(group.storageKey)) {
-        collapsedVideoGroups.delete(group.storageKey);
-      } else {
-        collapsedVideoGroups.add(group.storageKey);
+  // Now group videos by session
+  const sessionGroups = new Map();
+  orderedVideoGroups.forEach((group) => {
+    group.notes.forEach((note) => {
+      const sessionLabel = getSessionLabel(note.id);
+      if (!sessionGroups.has(sessionLabel)) {
+        sessionGroups.set(sessionLabel, []);
       }
-      refreshActiveNotesView();
     });
-    headerLeft.appendChild(toggleButton);
+  });
 
-    const headerTitle = document.createElement('div');
-    headerTitle.className = 'video-group-title';
-    headerTitle.textContent = `${group.videoTitle} (${group.notes.length})`;
-    headerLeft.appendChild(headerTitle);
+  // Organize videos into sessions
+  const videosBySession = new Map();
+  Array.from(sessionGroups.keys()).forEach((session) => {
+    videosBySession.set(session, []);
+  });
 
-    headerRow.appendChild(headerLeft);
-    groupContainer.appendChild(headerRow);
+  orderedVideoGroups.forEach((group) => {
+    const notesBySession = new Map();
+    
+    group.notes.forEach((note) => {
+      const sessionLabel = getSessionLabel(note.id);
+      if (!notesBySession.has(sessionLabel)) {
+        notesBySession.set(sessionLabel, []);
+      }
+      notesBySession.get(sessionLabel).push(note);
+    });
 
-    if (isCollapsed) {
-      notesList.appendChild(groupContainer);
-      return;
-    }
-
-    group.notes
-      .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
-      .forEach((note) => {
-        const noteVideoId = note.videoId || extractVideoIdFromUrl(note.url);
-        const isExternalNote = !!(noteVideoId && currentVideoId && noteVideoId !== currentVideoId);
-        groupContainer.appendChild(createNoteCard(note, isExternalNote));
+    // Add group to each session it appears in
+    for (const [sessionLabel, sessionNotes] of notesBySession.entries()) {
+      videosBySession.get(sessionLabel).push({
+        ...group,
+        notes: sessionNotes
       });
+    }
+  });
 
-    notesList.appendChild(groupContainer);
+  // Sort sessions
+  const sortedSessions = Array.from(videosBySession.entries())
+    .sort((a, b) => getSessionOrder(a[0]) - getSessionOrder(b[0]));
+
+  // Render sessions and their videos
+  sortedSessions.forEach((sessionEntry) => {
+    const [sessionLabel, videosInSession] = sessionEntry;
+    
+    if (videosInSession.length === 0) return;
+
+    // Session header
+    const sessionHeader = document.createElement('div');
+    sessionHeader.className = 'session-header';
+    sessionHeader.innerHTML = `<h3 class="session-title">📅 ${formatExportSessionDate(sessionLabel)}</h3>`;
+    notesList.appendChild(sessionHeader);
+
+    // Videos in this session
+    videosInSession.forEach((group) => {
+      const groupContainer = document.createElement('div');
+      groupContainer.className = 'video-group';
+
+      const headerRow = document.createElement('div');
+      const isCollapsed = collapsedVideoGroups.has(group.storageKey);
+      headerRow.className = `video-group-header${isCollapsed ? ' is-collapsed' : ''}`;
+
+      const headerLeft = document.createElement('div');
+      headerLeft.className = 'video-group-header-left';
+
+      if (manageModeEnabled) {
+        const sessionCheckbox = document.createElement('input');
+        sessionCheckbox.type = 'checkbox';
+        sessionCheckbox.className = 'session-select-checkbox';
+        sessionCheckbox.checked = selectedSessionKeys.has(group.storageKey);
+        sessionCheckbox.addEventListener('change', () => {
+          if (sessionCheckbox.checked) {
+            selectedSessionKeys.add(group.storageKey);
+          } else {
+            selectedSessionKeys.delete(group.storageKey);
+          }
+        });
+        headerLeft.appendChild(sessionCheckbox);
+      }
+
+      const toggleButton = document.createElement('button');
+      toggleButton.className = 'video-group-toggle';
+      toggleButton.type = 'button';
+      toggleButton.textContent = isCollapsed ? '+' : '−';
+      toggleButton.addEventListener('click', () => {
+        if (collapsedVideoGroups.has(group.storageKey)) {
+          collapsedVideoGroups.delete(group.storageKey);
+        } else {
+          collapsedVideoGroups.add(group.storageKey);
+        }
+        refreshActiveNotesView();
+      });
+      headerLeft.appendChild(toggleButton);
+
+      const headerTitle = document.createElement('div');
+      headerTitle.className = 'video-group-title';
+      headerTitle.textContent = `${group.videoTitle} (${group.notes.length})`;
+      headerLeft.appendChild(headerTitle);
+
+      headerRow.appendChild(headerLeft);
+      groupContainer.appendChild(headerRow);
+
+      if (isCollapsed) {
+        notesList.appendChild(groupContainer);
+        return;
+      }
+
+      group.notes
+        .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+        .forEach((note) => {
+          const noteVideoId = note.videoId || extractVideoIdFromUrl(note.url);
+          const isExternalNote = !!(noteVideoId && currentVideoId && noteVideoId !== currentVideoId);
+          groupContainer.appendChild(createNoteCard(note, isExternalNote));
+        });
+
+      notesList.appendChild(groupContainer);
+    });
   });
 }
 
@@ -1494,9 +1813,24 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('settings-btn').addEventListener('click', () => {
     openAttributionSettings();
   });
+
+  const unsavedBadge = document.getElementById('unsaved-badge');
+  if (unsavedBadge) {
+    unsavedBadge.addEventListener('click', () => {
+      exportNotes(false);
+    });
+  }
   
   document.getElementById('capture-btn').addEventListener('click', () => {
     captureTimestamp();
+  });
+  
+  document.getElementById('timestamp-minus-btn').addEventListener('click', () => {
+    adjustTimestamp(-1);
+  });
+  
+  document.getElementById('timestamp-plus-btn').addEventListener('click', () => {
+    adjustTimestamp(1);
   });
   
   document.getElementById('save-btn').addEventListener('click', () => {
@@ -1506,8 +1840,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
-  document.getElementById('export-btn').addEventListener('click', () => {
-    exportNotes();
+  document.getElementById('export-btn').addEventListener('click', (e) => {
+    if (e.shiftKey) {
+      exportNotes(true);  // Shift+click = export all sessions
+    } else {
+      exportNotes(false); // Normal click = current session only
+    }
+  });
+
+  window.addEventListener('pagehide', () => {
+    if (sessionNotesSinceExport > 0) {
+      exportNotes(false, true); // Silent auto-backup on close
+    }
   });
 
   document.getElementById('import-btn').addEventListener('click', () => {
