@@ -322,14 +322,150 @@ function exportNotes(exportAll = false, silent = false) {
         return getMostRecentNoteTimestamp(data[b]) - getMostRecentNoteTimestamp(data[a]);
       });
 
+      if (allVideoKeys.length === 0) {
+        if (!silent) alert('No notes available to export.');
+        return;
+      }
+
+      // ── SESSION EXPORT (default, no shift-click) ──────────────────────────
+      // Scan all notes for today's notes directly — no video-key cap, no pro gate.
+      // Falls back to the most recent session if no today notes exist.
+      if (!exportAll) {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfTodayMs = startOfToday.getTime();
+
+        // Collect every note across all videos, tag each with its storage key
+        const allNotesFlat = [];
+        allVideoKeys.forEach((key) => {
+          const notes = Array.isArray(data[key]) ? data[key] : [];
+          notes.forEach((note) => allNotesFlat.push({ ...note, _storageKey: key }));
+        });
+
+        // Find today's notes; if none, fall back to the newest session bucket
+        let sessionNotes = allNotesFlat.filter((note) => Number(note.id) >= startOfTodayMs);
+        let sessionLabel = 'Today';
+
+        if (sessionNotes.length === 0) {
+          // No today notes — find the most recent session that has notes
+          const newestNote = allNotesFlat.reduce((best, note) => {
+            return (Number(note.id) > Number(best.id)) ? note : best;
+          }, allNotesFlat[0]);
+
+          sessionLabel = getSessionLabel(newestNote.id);
+          const sessionStartMs = (() => {
+            const d = new Date(Number(newestNote.id));
+            d.setHours(0, 0, 0, 0);
+            return d.getTime();
+          })();
+          const sessionEndMs = sessionStartMs + (
+            sessionLabel === 'Yesterday' ? 86400000
+            : sessionLabel === 'This Week' ? 7 * 86400000
+            : sessionLabel === 'This Month' ? 31 * 86400000
+            : Infinity
+          );
+          sessionNotes = allNotesFlat.filter((note) => {
+            const noteSession = getSessionLabel(note.id);
+            return noteSession === sessionLabel;
+          });
+
+          if (!silent) {
+            alert(`No notes from today. Exporting your most recent session: ${formatExportSessionDate(sessionLabel)}.`);
+          }
+        }
+
+        if (sessionNotes.length === 0) {
+          if (!silent) alert('No notes available to export.');
+          return;
+        }
+
+        // Group session notes by video for the markdown
+        const sessionGroups = new Map();
+        sessionNotes.forEach((note) => {
+          const cleanVideoTitle = (title) => title ? title.replace(/^\(\d+\)\s*/, '').trim() : '';
+          const videoId = note.videoId || extractVideoIdFromUrl(note.url);
+          const groupKey = videoId ? `video:${videoId}` : `title:${normalizeForSearch(note.videoTitle || '')}`;
+
+          if (!sessionGroups.has(groupKey)) {
+            sessionGroups.set(groupKey, {
+              heading: cleanVideoTitle(note.videoTitle) || note.videoTitle || 'Imported Video',
+              sectionUrl: getCleanVideoUrl(note.url) || '',
+              notes: []
+            });
+          }
+          const group = sessionGroups.get(groupKey);
+          if (!group.sectionUrl) group.sectionUrl = getCleanVideoUrl(note.url) || '';
+          group.notes.push(note);
+        });
+
+        const orderedSessionGroups = Array.from(sessionGroups.values()).sort((a, b) => {
+          const latestA = Math.max(...a.notes.map((n) => Number(n.id) || 0), 0);
+          const latestB = Math.max(...b.notes.map((n) => Number(n.id) || 0), 0);
+          return latestB - latestA;
+        });
+
+        const now = new Date();
+        const markdownSections = [
+          '# 📹 VideoNotes Pro Export',
+          '',
+          `_Exported: ${now.toLocaleString()}_`,
+          '',
+          '---',
+          '',
+          `### 📅 ${formatExportSessionDate(sessionLabel)}`,
+          ''
+        ];
+
+        const buildTimestampLink = (baseUrl, seconds) => {
+          if (!baseUrl) return '';
+          try {
+            const url = new URL(baseUrl);
+            url.searchParams.set('t', String(Math.max(0, Math.floor(Number(seconds) || 0))));
+            return url.toString();
+          } catch { return ''; }
+        };
+
+        orderedSessionGroups.forEach((group) => {
+          markdownSections.push(`#### 🎬 ${group.heading}`);
+          markdownSections.push('');
+          markdownSections.push(`**Notes:** ${group.notes.length}`);
+          if (group.sectionUrl) {
+            markdownSections.push(`**Video:** [Watch on YouTube](${group.sectionUrl})`);
+          }
+          markdownSections.push('');
+
+          group.notes
+            .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+            .forEach((note, idx) => {
+              const label = note.timestampFormatted || '00:00';
+              const text = note.noteText || '';
+              const link = buildTimestampLink(getCleanVideoUrl(note.url) || group.sectionUrl, note.timestampSeconds);
+              markdownSections.push(link
+                ? `   ${idx + 1}. [⏱️ ${label}](${link}) — ${text}`
+                : `   ${idx + 1}. ⏱️ **${label}** — ${text}`
+              );
+            });
+          markdownSections.push('');
+        });
+
+        markdownSections.push('---', '', '_Generated by VideoNotes Pro_');
+
+        const markdown = markdownSections.join('\n').trim();
+        const fileName = getExportFileName(sessionLabel);
+        downloadTextFile(fileName, markdown, 'text/markdown');
+
+        if (!silent) {
+          sessionNotesSinceExport = 0;
+          updateUnsavedIndicator();
+          alert(`Session exported as ${fileName}`);
+        }
+        return;
+      }
+
+      // ── FULL ARCHIVE EXPORT (shift-click) ────────────────────────────────
       const videoKeys = isPro
         ? allVideoKeys
         : allVideoKeys.slice(0, FREE_EXPORT_IMPORT_VIDEO_LIMIT);
-
-      if (videoKeys.length === 0) {
-        alert('No notes available to export.');
-        return;
-      }
 
       if (!isPro && allVideoKeys.length > FREE_EXPORT_IMPORT_VIDEO_LIMIT) {
         alert(`Free plan exports the most recent ${FREE_EXPORT_IMPORT_VIDEO_LIMIT} video sessions. Upgrade to Pro for full export.`);
