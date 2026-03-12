@@ -328,54 +328,26 @@ function exportNotes(exportAll = false, silent = false) {
       }
 
       // ── SESSION EXPORT (default, no shift-click) ──────────────────────────
-      // Scan all notes for today's notes directly — no video-key cap, no pro gate.
-      // Falls back to the most recent session if no today notes exist.
+      // Only exports notes saved today. No fallback to previous days.
+      // Shift+click the Export button to get all sessions.
       if (!exportAll) {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
         const startOfTodayMs = startOfToday.getTime();
 
-        // Collect every note across all videos, tag each with its storage key
+        // Collect every note across all videos
         const allNotesFlat = [];
         allVideoKeys.forEach((key) => {
           const notes = Array.isArray(data[key]) ? data[key] : [];
           notes.forEach((note) => allNotesFlat.push({ ...note, _storageKey: key }));
         });
 
-        // Find today's notes; if none, fall back to the newest session bucket
-        let sessionNotes = allNotesFlat.filter((note) => Number(note.id) >= startOfTodayMs);
-        let sessionLabel = 'Today';
+        const sessionNotes = allNotesFlat.filter((note) => Number(note.id) >= startOfTodayMs);
 
         if (sessionNotes.length === 0) {
-          // No today notes — find the most recent session that has notes
-          const newestNote = allNotesFlat.reduce((best, note) => {
-            return (Number(note.id) > Number(best.id)) ? note : best;
-          }, allNotesFlat[0]);
-
-          sessionLabel = getSessionLabel(newestNote.id);
-          const sessionStartMs = (() => {
-            const d = new Date(Number(newestNote.id));
-            d.setHours(0, 0, 0, 0);
-            return d.getTime();
-          })();
-          const sessionEndMs = sessionStartMs + (
-            sessionLabel === 'Yesterday' ? 86400000
-            : sessionLabel === 'This Week' ? 7 * 86400000
-            : sessionLabel === 'This Month' ? 31 * 86400000
-            : Infinity
-          );
-          sessionNotes = allNotesFlat.filter((note) => {
-            const noteSession = getSessionLabel(note.id);
-            return noteSession === sessionLabel;
-          });
-
           if (!silent) {
-            alert(`No notes from today. Exporting your most recent session: ${formatExportSessionDate(sessionLabel)}.`);
+            alert("No notes from today's session to export.\n\nShift+click Export to save your full archive including older sessions.");
           }
-        }
-
-        if (sessionNotes.length === 0) {
-          if (!silent) alert('No notes available to export.');
           return;
         }
 
@@ -405,6 +377,7 @@ function exportNotes(exportAll = false, silent = false) {
         });
 
         const now = new Date();
+        const sessionLabel = 'Today';
         const markdownSections = [
           '# 📹 VideoNotes Pro Export',
           '',
