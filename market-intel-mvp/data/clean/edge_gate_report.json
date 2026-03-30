@@ -1,0 +1,78 @@
+{
+  "profile": "edge",
+  "profile_settings": {
+    "platform": "edge_addons",
+    "allowed_domains": [
+      "microsoftedge.microsoft.com"
+    ],
+    "blocked_domains": [
+      "support.microsoft.com"
+    ],
+    "minimum_records": 80,
+    "max_duplicate_rate_percent": 6.0,
+    "max_empty_text_rate_percent": 12.0,
+    "language_filter": [
+      "en"
+    ],
+    "priority_categories": [
+      "video_learning_focus",
+      "productivity_workflow",
+      "research_notes_capture",
+      "web_dev_utilities",
+      "shopping_review_intel",
+      "ai_prompt_workflows",
+      "data_automation_tools",
+      "reading_writing_enhancements"
+    ]
+  },
+  "stats": {
+    "generated_at": "2026-03-20T02:29:07.868760Z",
+    "total_rows": 5,
+    "duplicate_rows": 0,
+    "empty_text_rows": 0,
+    "empty_text_rate": 0.0,
+    "domain_distribution": {
+      "chromewebstore.google.com": 5
+    },
+    "error_count": 0,
+    "warn_count": 5,
+    "status": "pass"
+  },
+  "issues": [
+    {
+      "severity": "warn",
+      "code": "unexpected_domain",
+      "message": "Domain not in allowed list: chromewebstore.google.com",
+      "line": 1
+    },
+    {
+      "severity": "warn",
+      "code": "unexpected_domain",
+      "message": "Domain not in allowed list: chromewebstore.google.com",
+      "line": 2
+    },
+    {
+      "severity": "warn",
+      "code": "unexpected_domain",
+      "message": "Domain not in allowed list: chromewebstore.google.com",
+      "line": 3
+    },
+    {
+      "severity": "warn",
+      "code": "unexpected_domain",
+      "message": "Domain not in allowed list: chromewebstore.google.com",
+      "line": 4
+    },
+    {
+      "severity": "warn",
+      "code": "unexpected_domain",
+      "message": "Domain not in allowed list: chromewebstore.google.com",
+      "line": 5
+    }
+  ],
+  "threshold_failures": [
+    "minimum_records failed: 5 < 80"
+  ],
+  "gate_status": "fail",
+  "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson"
+}

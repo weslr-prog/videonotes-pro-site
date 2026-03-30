@@ -1,0 +1,61 @@
+{
+  "profiles": {
+    "chrome": {
+      "platform": "chrome_web_store",
+      "allowed_domains": ["chromewebstore.google.com"],
+      "blocked_domains": ["support.google.com"],
+      "minimum_records": 100,
+      "max_duplicate_rate_percent": 5.0,
+      "max_empty_text_rate_percent": 10.0,
+      "language_filter": ["en"],
+      "priority_categories": [
+        "video_learning_focus",
+        "productivity_workflow",
+        "research_notes_capture",
+        "web_dev_utilities",
+        "shopping_review_intel",
+        "ai_prompt_workflows",
+        "data_automation_tools",
+        "reading_writing_enhancements"
+      ]
+    },
+    "edge": {
+      "platform": "edge_addons",
+      "allowed_domains": ["microsoftedge.microsoft.com"],
+      "blocked_domains": ["support.microsoft.com"],
+      "minimum_records": 80,
+      "max_duplicate_rate_percent": 6.0,
+      "max_empty_text_rate_percent": 12.0,
+      "language_filter": ["en"],
+      "priority_categories": [
+        "video_learning_focus",
+        "productivity_workflow",
+        "research_notes_capture",
+        "web_dev_utilities",
+        "shopping_review_intel",
+        "ai_prompt_workflows",
+        "data_automation_tools",
+        "reading_writing_enhancements"
+      ]
+    },
+    "firefox": {
+      "platform": "firefox_addons",
+      "allowed_domains": ["addons.mozilla.org"],
+      "blocked_domains": ["support.mozilla.org"],
+      "minimum_records": 80,
+      "max_duplicate_rate_percent": 6.0,
+      "max_empty_text_rate_percent": 12.0,
+      "language_filter": ["en"],
+      "priority_categories": [
+        "video_learning_focus",
+        "productivity_workflow",
+        "research_notes_capture",
+        "web_dev_utilities",
+        "shopping_review_intel",
+        "ai_prompt_workflows",
+        "data_automation_tools",
+        "reading_writing_enhancements"
+      ]
+    }
+  }
+}

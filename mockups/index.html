@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VideoNotes Pro — UX Mockup Gallery</title>
+  <link rel="stylesheet" href="mockups.css" />
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <div class="brand-wrap">
+        <img src="../icons/icon128.png" alt="VideoNotes Pro icon" class="brand-icon" />
+        <div>
+          <h1>VideoNotes Pro UX Mockups</h1>
+          <p>Side panel concepts based on your ChatGPT + Gemini direction docs.</p>
+        </div>
+      </div>
+      <p class="note">If your new 1024 icon is added later, replace <code>../icons/icon128.png</code> here.</p>
+    </header>
+
+    <section class="comparison-grid">
+      <article class="concept-card">
+        <h2>ChatGPT #1 — Timeline Stack</h2>
+        <div class="panel timeline">
+          <div class="panel-header">Current Video · Building Chrome Extensions</div>
+          <div class="capture-sticky">
+            <button>📸 Capture Timestamp</button>
+            <input placeholder="Add note…" />
+          </div>
+          <div class="feed">
+            <div class="timeline-item">
+              <span class="stamp">00:12</span>
+              <div class="note-card">Manifest v3 permission list is clearer than I expected.</div>
+            </div>
+            <div class="timeline-item">
+              <span class="stamp">01:45</span>
+              <div class="note-card">Need fallback jump logic when message fails.</div>
+            </div>
+            <div class="timeline-item">
+              <span class="stamp">03:10</span>
+              <div class="note-card">Use grouped notes by video for fast recall.</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept-card">
+        <h2>ChatGPT #2 — Compact Card Workspace</h2>
+        <div class="panel compact">
+          <div class="panel-header">Your Notes</div>
+          <input class="search" placeholder="Search notes and videos…" />
+          <div class="chips">
+            <span class="chip active">Current Video</span>
+            <span class="chip">All Notes</span>
+            <span class="chip">Today</span>
+          </div>
+          <div class="feed">
+            <div class="review-card">
+              <span class="pill">00:45</span>
+              <p>Core insight: keep storage schema stable, improve rendering hierarchy first.</p>
+              <div class="actions"><button>Jump</button><button>Edit</button></div>
+            </div>
+            <div class="review-card">
+              <span class="pill">02:30</span>
+              <p>All Notes should feel like a library, not a raw log of events.</p>
+              <div class="actions"><button>Jump</button><button>Edit</button></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept-card">
+        <h2>ChatGPT #3 — Split Pane Micro-Workspace</h2>
+        <div class="panel split">
+          <input class="search" placeholder="Search…" />
+          <div class="split-body">
+            <aside class="left-rail">
+              <div class="rail-item active">00:12</div>
+              <div class="rail-item">01:45</div>
+              <div class="rail-item">03:10</div>
+              <div class="rail-item">05:02</div>
+            </aside>
+            <section class="detail">
+              <span class="pill">00:12</span>
+              <p>Selected note stays visible for quick editing and repeated jumps.</p>
+              <textarea>Selected note text…</textarea>
+              <div class="actions"><button>Jump</button><button>Delete</button></div>
+            </section>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept-card">
+        <h2>Gemini #1 — Contextual Feed</h2>
+        <div class="panel feed-mode">
+          <div class="panel-header">Current Video · Contextual Feed</div>
+          <input class="search" placeholder="Search notes…" />
+          <div class="feed minimal">
+            <div class="feed-row">
+              <span class="tiny-stamp">00:21</span>
+              <p>Main idea should stay readable above all controls.</p>
+            </div>
+            <div class="feed-row">
+              <span class="tiny-stamp">01:14</span>
+              <p>Toolbar appears on hover to keep layout visually calm.</p>
+            </div>
+            <div class="feed-row">
+              <span class="tiny-stamp">02:58</span>
+              <p>All Notes adds video context cards between groups.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept-card">
+        <h2>Gemini #2 — Structured Outline</h2>
+        <div class="panel outline">
+          <div class="panel-header">Structured Outline</div>
+          <div class="feed">
+            <div class="outline-card">
+              <button class="pill action">00:34</button>
+              <p>Session chunk A: definitions and setup details.</p>
+              <small>Added today</small>
+            </div>
+            <div class="outline-card">
+              <button class="pill action">01:56</button>
+              <p>Session chunk B: architecture tradeoffs and fallback behavior.</p>
+              <small>Added today</small>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="concept-card">
+        <h2>Gemini #3 — Tabbed Workspace</h2>
+        <div class="panel tabs-mode">
+          <div class="tab-row">
+            <span class="tab active">Take Notes</span>
+            <span class="tab">Review</span>
+            <span class="tab">Library</span>
+          </div>
+          <div class="feed">
+            <div class="review-card">
+              <span class="pill">Now</span>
+              <p>Mode-based UI separates capture from deep review for heavy users.</p>
+              <div class="actions"><button>Save</button><button>Open Review</button></div>
+            </div>
+            <div class="review-card muted">
+              <span class="pill">Library</span>
+              <p>In library mode, grouped sessions and stronger filtering are visible.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

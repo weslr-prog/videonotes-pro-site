@@ -45,7 +45,10 @@
 
       <!-- Notes List Section -->
       <section class="notes-section">
-        <h2 class="notes-title">Your Notes</h2>
+        <div class="notes-header-row">
+          <h2 class="notes-title">Your Notes</h2>
+          <button id="notes-expand-btn" class="notes-expand-btn" type="button" title="Expand notes view" aria-pressed="false" aria-label="Expand notes view">⤢</button>
+        </div>
         <div class="notes-tabs" role="tablist" aria-label="Notes view">
           <button id="tab-current" class="notes-tab active" type="button" role="tab" aria-selected="true">Current Video</button>
           <button id="tab-all" class="notes-tab" type="button" role="tab" aria-selected="false">All Notes</button>

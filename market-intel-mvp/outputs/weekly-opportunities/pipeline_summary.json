@@ -1,0 +1,112 @@
+{
+  "generated_at": "2026-03-20T02:29:07.869385Z",
+  "profiles": [
+    "chrome",
+    "edge",
+    "firefox"
+  ],
+  "runs": [
+    {
+      "profile": "chrome",
+      "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson",
+      "gate_status": "fail",
+      "stats": {
+        "generated_at": "2026-03-20T02:29:07.867767Z",
+        "total_rows": 5,
+        "duplicate_rows": 0,
+        "empty_text_rows": 0,
+        "empty_text_rate": 0.0,
+        "domain_distribution": {
+          "chromewebstore.google.com": 5
+        },
+        "error_count": 0,
+        "warn_count": 0,
+        "status": "pass"
+      },
+      "threshold_failures": [
+        "minimum_records failed: 5 < 100"
+      ],
+      "artifacts": {
+        "validation_json": "market-intel-mvp/data/clean/chrome_gate_report.json",
+        "validation_md": "market-intel-mvp/outputs/weekly-opportunities/chrome_gate_report.md",
+        "opportunities_json": "market-intel-mvp/data/scored/chrome_opportunities.json",
+        "opportunities_md": "market-intel-mvp/outputs/weekly-opportunities/chrome_opportunities.md"
+      },
+      "analysis": {
+        "profile": "chrome",
+        "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson",
+        "gate_status": "fail",
+        "top_clusters": [],
+        "review_count": 0
+      }
+    },
+    {
+      "profile": "edge",
+      "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson",
+      "gate_status": "fail",
+      "stats": {
+        "generated_at": "2026-03-20T02:29:07.868760Z",
+        "total_rows": 5,
+        "duplicate_rows": 0,
+        "empty_text_rows": 0,
+        "empty_text_rate": 0.0,
+        "domain_distribution": {
+          "chromewebstore.google.com": 5
+        },
+        "error_count": 0,
+        "warn_count": 5,
+        "status": "pass"
+      },
+      "threshold_failures": [
+        "minimum_records failed: 5 < 80"
+      ],
+      "artifacts": {
+        "validation_json": "market-intel-mvp/data/clean/edge_gate_report.json",
+        "validation_md": "market-intel-mvp/outputs/weekly-opportunities/edge_gate_report.md",
+        "opportunities_json": "market-intel-mvp/data/scored/edge_opportunities.json",
+        "opportunities_md": "market-intel-mvp/outputs/weekly-opportunities/edge_opportunities.md"
+      },
+      "analysis": {
+        "profile": "edge",
+        "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson",
+        "gate_status": "fail",
+        "top_clusters": [],
+        "review_count": 0
+      }
+    },
+    {
+      "profile": "firefox",
+      "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson",
+      "gate_status": "fail",
+      "stats": {
+        "generated_at": "2026-03-20T02:29:07.869163Z",
+        "total_rows": 5,
+        "duplicate_rows": 0,
+        "empty_text_rows": 0,
+        "empty_text_rate": 0.0,
+        "domain_distribution": {
+          "chromewebstore.google.com": 5
+        },
+        "error_count": 0,
+        "warn_count": 5,
+        "status": "pass"
+      },
+      "threshold_failures": [
+        "minimum_records failed: 5 < 80"
+      ],
+      "artifacts": {
+        "validation_json": "market-intel-mvp/data/clean/firefox_gate_report.json",
+        "validation_md": "market-intel-mvp/outputs/weekly-opportunities/firefox_gate_report.md",
+        "opportunities_json": "market-intel-mvp/data/scored/firefox_opportunities.json",
+        "opportunities_md": "market-intel-mvp/outputs/weekly-opportunities/firefox_opportunities.md"
+      },
+      "analysis": {
+        "profile": "firefox",
+        "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson",
+        "gate_status": "fail",
+        "top_clusters": [],
+        "review_count": 0
+      }
+    }
+  ]
+}

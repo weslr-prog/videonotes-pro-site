@@ -13,6 +13,9 @@ let notesSearchQuery = '';
 const EXTPAY_EXTENSION_ID = 'videonote-pro';
 let isOpeningPaymentPage = false;
 let sessionNotesSinceExport = 0;
+const NOTE_PREVIEW_CHARACTER_LIMIT = 190;
+let notesExpanded = false;
+let currentVideoUrl = '';
 
 const extpay = typeof ExtPay === 'function' ? ExtPay(EXTPAY_EXTENSION_ID) : null;
 
@@ -86,7 +89,25 @@ function extractVideoIdFromUrl(urlString) {
 
   try {
     const url = new URL(urlString);
-    return url.searchParams.get('v') || '';
+    const hostname = url.hostname.toLowerCase();
+
+    if (hostname === 'youtu.be') {
+      const idFromPath = url.pathname.replace(/^\//, '').split('/')[0] || '';
+      return idFromPath || '';
+    }
+
+    if (hostname.endsWith('youtube.com') || hostname.endsWith('youtube-nocookie.com')) {
+      if (url.pathname === '/watch') {
+        return url.searchParams.get('v') || '';
+      }
+
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      if (pathParts.length >= 2 && (pathParts[0] === 'shorts' || pathParts[0] === 'embed' || pathParts[0] === 'live')) {
+        return pathParts[1] || '';
+      }
+    }
+
+    return '';
   } catch (error) {
     return '';
   }
@@ -96,11 +117,12 @@ function getCleanVideoUrl(urlString) {
   if (!urlString) return '';
 
   try {
-    const url = new URL(urlString);
-    url.searchParams.delete('t');
-    url.searchParams.delete('time_continue');
-    url.searchParams.delete('start');
-    return url.toString();
+    const videoId = extractVideoIdFromUrl(urlString);
+    if (!videoId) {
+      return '';
+    }
+
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
   } catch (error) {
     return '';
   }
@@ -196,9 +218,41 @@ function shouldRetryWithInjection(errorMessage) {
   return message.includes('receiving end does not exist') || message.includes('could not establish connection');
 }
 
+function isRestrictedRuntimeMessage(errorMessage) {
+  const message = String(errorMessage || '').toLowerCase();
+  return message.includes('cannot access a chrome:// url') || message.includes('cannot access this browser page');
+}
+
+function getTabUrl(activeTab) {
+  if (!activeTab) return '';
+  return activeTab.url || activeTab.pendingUrl || '';
+}
+
+function isRestrictedMessagingUrl(urlString) {
+  if (!urlString || typeof urlString !== 'string') {
+    return false;
+  }
+
+  const normalized = urlString.toLowerCase();
+  return (
+    normalized.startsWith('chrome://') ||
+    normalized.startsWith('chrome-extension://') ||
+    normalized.startsWith('edge://') ||
+    normalized.startsWith('about:') ||
+    normalized.startsWith('devtools://') ||
+    normalized.startsWith('view-source:')
+  );
+}
+
 function sendMessageWithAutoInjection(activeTab, message, callback) {
   if (!activeTab || activeTab.id === undefined) {
     callback(null, 'No active tab found.');
+    return;
+  }
+
+  const tabUrl = getTabUrl(activeTab);
+  if (isRestrictedMessagingUrl(tabUrl)) {
+    callback(null, 'Cannot access this browser page. Open a regular website tab first.');
     return;
   }
 
@@ -211,6 +265,11 @@ function sendMessageWithAutoInjection(activeTab, message, callback) {
       }
 
       const runtimeMessage = runtimeError.message || 'Unknown messaging error';
+      if (isRestrictedRuntimeMessage(runtimeMessage)) {
+        callback(null, 'Cannot access this browser page. Open a YouTube video tab first.');
+        return;
+      }
+
       if (!allowInjectRetry || !shouldRetryWithInjection(runtimeMessage)) {
         callback(null, runtimeMessage);
         return;
@@ -264,6 +323,50 @@ function filterNotesBySearch(notes) {
     const videoTitle = normalizeForSearch(note.videoTitle);
     return noteText.includes(query) || videoTitle.includes(query);
   });
+}
+
+function sortNotesForDisplay(notes) {
+  return [...(Array.isArray(notes) ? notes : [])].sort((a, b) => {
+    const pinA = a && a.pinned ? 1 : 0;
+    const pinB = b && b.pinned ? 1 : 0;
+    if (pinA !== pinB) {
+      return pinB - pinA;
+    }
+
+    const idA = Number(a && a.id) || 0;
+    const idB = Number(b && b.id) || 0;
+    return idB - idA;
+  });
+}
+
+function resolveCurrentVideoUrl(responseUrl, activeTabUrl, videoId) {
+  const cleanResponseUrl = getCleanVideoUrl(responseUrl);
+  const responseVideoId = extractVideoIdFromUrl(cleanResponseUrl);
+
+  if (cleanResponseUrl && (!videoId || (responseVideoId && responseVideoId === videoId))) {
+    return cleanResponseUrl;
+  }
+
+  const cleanActiveTabUrl = getCleanVideoUrl(activeTabUrl);
+  const activeTabVideoId = extractVideoIdFromUrl(cleanActiveTabUrl);
+
+  if (cleanActiveTabUrl && !isRestrictedMessagingUrl(cleanActiveTabUrl) && (!videoId || (activeTabVideoId && activeTabVideoId === videoId))) {
+    return cleanActiveTabUrl;
+  }
+
+  if (videoId) {
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+  }
+
+  if (cleanResponseUrl) {
+    return cleanResponseUrl;
+  }
+
+  if (cleanActiveTabUrl && !isRestrictedMessagingUrl(cleanActiveTabUrl)) {
+    return cleanActiveTabUrl;
+  }
+
+  return '';
 }
 
 function setSearchStatus(message) {
@@ -760,7 +863,8 @@ function parseImportedMarkdown(markdownText) {
         timestampSeconds: seconds,
         timestampFormatted: timestampFormatted || formatSecondsToTimestamp(seconds),
         noteText: noteText.trim(),
-        url: cleanUrl || currentSectionUrl
+        url: cleanUrl || currentSectionUrl,
+        pinned: false
       });
       generatedIdOffset += 1;
       return;
@@ -795,7 +899,8 @@ function parseImportedMarkdown(markdownText) {
         timestampSeconds: seconds,
         timestampFormatted: timestampFormatted || formatSecondsToTimestamp(seconds),
         noteText: noteText.trim(),
-        url: cleanUrl || currentSectionUrl
+        url: cleanUrl || currentSectionUrl,
+        pinned: false
       });
       generatedIdOffset += 1;
       return;
@@ -818,7 +923,8 @@ function parseImportedMarkdown(markdownText) {
         timestampSeconds: seconds,
         timestampFormatted: timestampFormatted || formatSecondsToTimestamp(seconds),
         noteText: noteText.trim(),
-        url: currentSectionUrl
+        url: currentSectionUrl,
+        pinned: false
       });
       generatedIdOffset += 1;
     }
@@ -888,7 +994,8 @@ function mergeImportedNotes(parsedNotes, isPro, callback) {
           timestampSeconds: seconds,
           timestampFormatted: note.timestampFormatted || formatSecondsToTimestamp(seconds),
           noteText: text,
-          url: note.url || ''
+          url: note.url || '',
+          pinned: !!note.pinned
         };
 
         existingForKey.push(importedNote);
@@ -1042,15 +1149,21 @@ function initializeFromActiveTab(callback) {
 
     sendMessageWithAutoInjection(activeTab, { type: 'GET_TIMESTAMP' }, (response, errorMessage) => {
       if (errorMessage) {
-        console.warn('Initialization failed:', errorMessage);
+        if (isRestrictedRuntimeMessage(errorMessage)) {
+          console.info('Initialization skipped on restricted browser page.');
+        } else {
+          console.warn('Initialization failed:', errorMessage);
+        }
         if (callback) callback(false);
         return;
       }
 
       if (response && !response.error) {
+        const activeTabUrl = getTabUrl(activeTab);
         currentVideoTitle = response.title;
         currentTimestampSeconds = response.currentTime;
-        currentVideoId = response.videoId || extractVideoIdFromUrl(response.url) || extractVideoIdFromUrl(activeTab.url);
+        currentVideoId = response.videoId || extractVideoIdFromUrl(response.url) || extractVideoIdFromUrl(activeTabUrl);
+        currentVideoUrl = resolveCurrentVideoUrl(response.url, activeTabUrl, currentVideoId);
         currentTabId = activeTab.id;
 
         console.log('Panel initialized for video:', currentVideoTitle);
@@ -1079,9 +1192,11 @@ function captureTimestamp() {
       }
 
       if (response && !response.error) {
+        const activeTabUrl = getTabUrl(activeTab);
         currentTimestampSeconds = response.currentTime;
         currentVideoTitle = response.title;
-        currentVideoId = response.videoId || extractVideoIdFromUrl(response.url) || extractVideoIdFromUrl(activeTab.url);
+        currentVideoId = response.videoId || extractVideoIdFromUrl(response.url) || extractVideoIdFromUrl(activeTabUrl);
+        currentVideoUrl = resolveCurrentVideoUrl(response.url, activeTabUrl, currentVideoId);
         currentTabId = activeTab.id;
 
         console.log('Captured timestamp:', currentTimestampSeconds, 'from:', currentVideoTitle);
@@ -1132,7 +1247,8 @@ function saveNote(callback) {
     }
   
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabUrl = tabs.length > 0 ? tabs[0].url : '';
+      const activeTabUrl = tabs.length > 0 ? getTabUrl(tabs[0]) : '';
+      const noteUrl = resolveCurrentVideoUrl(currentVideoUrl, activeTabUrl, currentVideoId);
       
       const note = {
         id: Date.now(),
@@ -1141,7 +1257,8 @@ function saveNote(callback) {
         timestampSeconds: currentTimestampSeconds,
         timestampFormatted: timestampFormatted,
         noteText: noteText,
-        url: tabUrl
+        url: noteUrl,
+        pinned: false
       };
       
       console.log('Saving note with key:', storageKey);
@@ -1195,8 +1312,16 @@ function loadNotesForVideo() {
   chrome.storage.local.get(null, (allData) => {
     const data = allData || {};
     const primaryNotes = data[storageKey] || [];
-    const primaryNotesWithKey = primaryNotes.map((note) => ({ ...note, _storageKey: storageKey }));
-    const filteredPrimaryNotes = filterNotesBySearch(primaryNotesWithKey);
+    const normalizedPrimaryNotes = primaryNotes.map((note) => {
+      const normalizedUrl = getCleanVideoUrl(note.url) || resolveCurrentVideoUrl(currentVideoUrl, '', note.videoId || currentVideoId);
+      return {
+        ...note,
+        pinned: !!note.pinned,
+        url: normalizedUrl,
+        _storageKey: storageKey
+      };
+    });
+    const filteredPrimaryNotes = filterNotesBySearch(normalizedPrimaryNotes);
     setSearchStatus(notesSearchQuery ? `Current video matches: ${filteredPrimaryNotes.length}` : '');
 
     if (primaryNotes.length > 0 || !currentVideoId) {
@@ -1250,7 +1375,12 @@ function loadAllNotes() {
     allowedVideoKeys.forEach((key) => {
       const list = Array.isArray(data[key]) ? data[key] : [];
       list.forEach((note) => {
-        allNotes.push({ ...note, _storageKey: key });
+        allNotes.push({
+          ...note,
+          pinned: !!note.pinned,
+          url: getCleanVideoUrl(note.url) || resolveCurrentVideoUrl('', '', note.videoId),
+          _storageKey: key
+        });
       });
     });
 
@@ -1282,13 +1412,34 @@ function openNoteUrlAtTimestamp(urlString, seconds) {
   try {
     const url = new URL(cleanUrl);
     url.searchParams.set('t', String(Math.max(0, Math.floor(Number(seconds) || 0))));
+    const targetUrl = url.toString();
+
+    if (currentTabId !== null) {
+      chrome.tabs.get(currentTabId, (trackedTab) => {
+        if (!chrome.runtime.lastError && trackedTab && trackedTab.id !== undefined) {
+          chrome.tabs.update(trackedTab.id, { url: targetUrl });
+          return;
+        }
+
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs.length > 0 && tabs[0].id !== undefined) {
+            chrome.tabs.update(tabs[0].id, { url: targetUrl });
+            return;
+          }
+
+          chrome.tabs.create({ url: targetUrl, active: true });
+        });
+      });
+      return true;
+    }
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs.length > 0 && tabs[0].id !== undefined) {
-        chrome.tabs.update(tabs[0].id, { url: url.toString() });
+        chrome.tabs.update(tabs[0].id, { url: targetUrl });
         return;
       }
 
-      chrome.tabs.create({ url: url.toString() });
+      chrome.tabs.create({ url: targetUrl, active: true });
     });
     return true;
   } catch (error) {
@@ -1326,6 +1477,44 @@ function getNoteSelectionKey(note) {
   return `${storageKey}::${idValue}::${secondsValue}::${noteText}`;
 }
 
+function toggleNotePinned(note) {
+  const storageKey = getStorageKeyForNote(note);
+
+  chrome.storage.local.get(storageKey, (data) => {
+    const existing = Array.isArray(data[storageKey]) ? data[storageKey] : [];
+    const targetId = Number(note.id) || 0;
+    const targetSeconds = Math.max(0, Math.floor(Number(note.timestampSeconds) || 0));
+    const targetText = (note.noteText || '').trim();
+
+    let updatedAny = false;
+    const updated = existing.map((entry) => {
+      const entryId = Number(entry.id) || 0;
+      const entrySeconds = Math.max(0, Math.floor(Number(entry.timestampSeconds) || 0));
+      const entryText = (entry.noteText || '').trim();
+
+      const matchesById = targetId > 0 && entryId > 0 && targetId === entryId;
+      const matchesByContent = targetId <= 0 && entrySeconds === targetSeconds && entryText === targetText;
+      if (!(matchesById || matchesByContent)) {
+        return entry;
+      }
+
+      updatedAny = true;
+      return {
+        ...entry,
+        pinned: !entry.pinned
+      };
+    });
+
+    if (!updatedAny) {
+      return;
+    }
+
+    chrome.storage.local.set({ [storageKey]: updated }, () => {
+      refreshActiveNotesView();
+    });
+  });
+}
+
 function clearManageSelections() {
   selectedNoteKeys.clear();
   selectedSessionKeys.clear();
@@ -1349,6 +1538,25 @@ function updateNotesControls() {
   }
 }
 
+function updateNotesExpandedUi() {
+  document.body.classList.toggle('notes-expanded', notesExpanded);
+
+  const expandButton = document.getElementById('notes-expand-btn');
+  if (!expandButton) {
+    return;
+  }
+
+  expandButton.textContent = notesExpanded ? '⤡' : '⤢';
+  expandButton.setAttribute('aria-pressed', String(notesExpanded));
+  expandButton.setAttribute('aria-label', notesExpanded ? 'Collapse notes view' : 'Expand notes view');
+  expandButton.title = notesExpanded ? 'Collapse notes view' : 'Expand notes view';
+}
+
+function toggleNotesExpanded() {
+  notesExpanded = !notesExpanded;
+  updateNotesExpandedUi();
+}
+
 function toggleManageMode() {
   if (manageModeEnabled) {
     manageModeEnabled = false;
@@ -1361,7 +1569,6 @@ function toggleManageMode() {
   checkProStatus().then((isPro) => {
     if (!isPro) {
       alert('Manage Notes is a Pro feature. Free plan can still capture notes and limited import/export.');
-      openUpgradePage();
       return;
     }
 
@@ -1531,9 +1738,69 @@ function deleteVideoNotes(storageKey, videoTitle) {
   });
 }
 
+function copyTextToClipboard(text, triggerButton) {
+  const value = String(text || '').trim();
+  if (!value) {
+    alert('Nothing to copy yet.');
+    return;
+  }
+
+  const showCopiedState = () => {
+    if (!triggerButton) {
+      return;
+    }
+
+    const originalLabel = triggerButton.textContent;
+    triggerButton.textContent = 'Copied';
+    triggerButton.disabled = true;
+    window.setTimeout(() => {
+      triggerButton.textContent = originalLabel;
+      triggerButton.disabled = false;
+    }, 900);
+  };
+
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(value)
+      .then(() => {
+        showCopiedState();
+      })
+      .catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showCopiedState();
+      });
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', 'readonly');
+  textarea.style.position = 'absolute';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+  showCopiedState();
+}
+
 function createNoteCard(note, isExternalNote) {
   const noteCard = document.createElement('div');
-  noteCard.className = `note-card${isExternalNote ? ' note-external' : ''}`;
+  noteCard.className = `note-card${isExternalNote ? ' note-external' : ''}${note.pinned ? ' note-pinned' : ''}`;
+
+  if (activeNotesView === 'all' && note.videoTitle) {
+    const videoLabel = document.createElement('div');
+    videoLabel.className = 'note-video-label';
+    videoLabel.textContent = note.videoTitle;
+    noteCard.appendChild(videoLabel);
+  }
 
   const noteRow = document.createElement('div');
   noteRow.className = 'note-row';
@@ -1563,7 +1830,7 @@ function createNoteCard(note, isExternalNote) {
   timestamp.setAttribute('data-seconds', note.timestampSeconds);
   timestamp.style.cursor = 'pointer';
 
-  timestamp.addEventListener('click', () => {
+  const onJumpToTimestamp = () => {
     if (isExternalNote && note.url) {
       const opened = openNoteUrlAtTimestamp(note.url, note.timestampSeconds);
       if (opened) {
@@ -1571,8 +1838,10 @@ function createNoteCard(note, isExternalNote) {
       }
     }
 
-    jumpToTimestamp(note.timestampSeconds);
-  });
+    jumpToTimestamp(note.timestampSeconds, note.url);
+  };
+
+  timestamp.addEventListener('click', onJumpToTimestamp);
 
   noteRowLeft.appendChild(timestamp);
   noteRow.appendChild(noteRowLeft);
@@ -1596,8 +1865,58 @@ function createNoteCard(note, isExternalNote) {
   text.className = 'note-text';
   text.textContent = note.noteText;
 
+  const noteTextValue = String(note.noteText || '').trim();
+  const canCollapseText = noteTextValue.length > NOTE_PREVIEW_CHARACTER_LIMIT;
+  if (canCollapseText) {
+    text.classList.add('note-text-truncated');
+  }
+
   noteCard.appendChild(noteRow);
   noteCard.appendChild(text);
+
+  const quickActions = document.createElement('div');
+  quickActions.className = 'note-quick-actions';
+
+  const jumpButton = document.createElement('button');
+  jumpButton.className = 'note-action-btn';
+  jumpButton.type = 'button';
+  jumpButton.textContent = isExternalNote ? 'Open' : 'Jump';
+  jumpButton.addEventListener('click', onJumpToTimestamp);
+
+  const copyButton = document.createElement('button');
+  copyButton.className = 'note-action-btn';
+  copyButton.type = 'button';
+  copyButton.textContent = 'Copy';
+  copyButton.addEventListener('click', () => {
+    copyTextToClipboard(note.noteText, copyButton);
+  });
+
+  quickActions.appendChild(jumpButton);
+  quickActions.appendChild(copyButton);
+
+  const pinButton = document.createElement('button');
+  pinButton.className = `note-action-btn note-pin-btn${note.pinned ? ' is-active' : ''}`;
+  pinButton.type = 'button';
+  pinButton.textContent = note.pinned ? 'Unpin' : 'Pin';
+  pinButton.addEventListener('click', () => {
+    toggleNotePinned(note);
+  });
+  quickActions.appendChild(pinButton);
+
+  if (canCollapseText) {
+    const togglePreviewButton = document.createElement('button');
+    togglePreviewButton.className = 'note-action-btn';
+    togglePreviewButton.type = 'button';
+    togglePreviewButton.textContent = 'More';
+    togglePreviewButton.addEventListener('click', () => {
+      const expanded = text.classList.toggle('note-text-expanded');
+      text.classList.toggle('note-text-truncated', !expanded);
+      togglePreviewButton.textContent = expanded ? 'Less' : 'More';
+    });
+    quickActions.appendChild(togglePreviewButton);
+  }
+
+  noteCard.appendChild(quickActions);
 
   return noteCard;
 }
@@ -1733,7 +2052,15 @@ function renderAllNotesGrouped(notesList, notes) {
       }
 
       group.notes
-        .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+        .sort((a, b) => {
+          const pinA = a && a.pinned ? 1 : 0;
+          const pinB = b && b.pinned ? 1 : 0;
+          if (pinA !== pinB) {
+            return pinB - pinA;
+          }
+
+          return (Number(b.id) || 0) - (Number(a.id) || 0);
+        })
         .forEach((note) => {
           const noteVideoId = note.videoId || extractVideoIdFromUrl(note.url);
           const isExternalNote = !!(noteVideoId && currentVideoId && noteVideoId !== currentVideoId);
@@ -1759,6 +2086,7 @@ function renderNotes(notes, options = {}) {
         ? 'No matches in this video. Try a different search term.'
         : 'No notes yet. Capture a timestamp to get started!');
     notesList.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+    notesList.scrollTop = 0;
     return;
   }
   
@@ -1766,27 +2094,31 @@ function renderNotes(notes, options = {}) {
 
   if (showVideoTitle) {
     renderAllNotesGrouped(notesList, notes);
+    notesList.scrollTop = 0;
     return;
   }
 
-  notes.forEach((note) => {
+  sortNotesForDisplay(notes).forEach((note) => {
     const noteVideoId = note.videoId || extractVideoIdFromUrl(note.url);
     const isExternalNote = !!(noteVideoId && currentVideoId && noteVideoId !== currentVideoId);
     notesList.appendChild(createNoteCard(note, isExternalNote));
   });
+
+  notesList.scrollTop = 0;
 }
 
-function jumpToTimestamp(seconds) {
+function jumpToTimestamp(seconds, preferredUrl) {
   console.log('Jumping to timestamp:', seconds);
 
-  const fallbackNavigateToTimestamp = (tabId, tabUrl) => {
-    if (!tabUrl) {
+  const fallbackNavigateToTimestamp = (tabId, tabUrl, fallbackUrl) => {
+    const destinationUrl = fallbackUrl || tabUrl || '';
+    if (!destinationUrl) {
       console.error('No tab URL available for jump fallback');
       return;
     }
 
     try {
-      const url = new URL(tabUrl);
+      const url = new URL(destinationUrl);
       const targetSeconds = Math.max(0, Math.floor(seconds));
       url.searchParams.set('t', String(targetSeconds));
 
@@ -1800,42 +2132,88 @@ function jumpToTimestamp(seconds) {
     }
   };
 
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs.length === 0 || tabs[0].id === undefined) {
+  const handleJumpOnTab = (targetTab) => {
+    if (!targetTab || targetTab.id === undefined) {
       console.error('No active tab found for jump');
       return;
     }
 
-    const activeTab = tabs[0];
-    currentTabId = activeTab.id;
+    const tabUrl = getTabUrl(targetTab);
+    const preferredVideoId = extractVideoIdFromUrl(preferredUrl);
+    const activeTabVideoId = extractVideoIdFromUrl(tabUrl);
 
-    sendMessageWithAutoInjection(activeTab, { type: 'JUMP_TO_TIME', seconds: seconds }, (response, errorMessage) => {
+    if (preferredUrl && preferredVideoId && activeTabVideoId && preferredVideoId !== activeTabVideoId) {
+      fallbackNavigateToTimestamp(targetTab.id, tabUrl, preferredUrl);
+      return;
+    }
+
+    if (isRestrictedMessagingUrl(tabUrl) && preferredUrl) {
+      fallbackNavigateToTimestamp(targetTab.id, tabUrl, preferredUrl);
+      return;
+    }
+
+    sendMessageWithAutoInjection(targetTab, { type: 'JUMP_TO_TIME', seconds: seconds }, (response, errorMessage) => {
       if (errorMessage) {
         console.error('Jump message error:', errorMessage);
-        fallbackNavigateToTimestamp(activeTab.id, activeTab.url);
+        fallbackNavigateToTimestamp(targetTab.id, tabUrl, preferredUrl);
         return;
       }
 
       if (!response) {
         console.error('No response received for jump request');
-        fallbackNavigateToTimestamp(activeTab.id, activeTab.url);
+        fallbackNavigateToTimestamp(targetTab.id, tabUrl, preferredUrl);
         return;
       }
 
       if (response.error) {
         console.error('Failed to jump to timestamp:', response.error);
-        fallbackNavigateToTimestamp(activeTab.id, activeTab.url);
+        fallbackNavigateToTimestamp(targetTab.id, tabUrl, preferredUrl);
       }
     });
+  };
+
+  if (currentTabId !== null) {
+    chrome.tabs.get(currentTabId, (trackedTab) => {
+      if (!chrome.runtime.lastError && trackedTab && trackedTab.id !== undefined) {
+        handleJumpOnTab(trackedTab);
+        return;
+      }
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs.length > 0 ? tabs[0] : null;
+        if (activeTab && activeTab.id !== undefined) {
+          currentTabId = activeTab.id;
+        }
+        handleJumpOnTab(activeTab);
+      });
+    });
+    return;
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const activeTab = tabs.length > 0 ? tabs[0] : null;
+    if (activeTab && activeTab.id !== undefined) {
+      currentTabId = activeTab.id;
+    }
+    handleJumpOnTab(activeTab);
   });
 }
 
 // ==================== PROMPT C: Wire Up Buttons ====================
 
 document.addEventListener('DOMContentLoaded', () => {
+  updateNotesExpandedUi();
+
   const importFileInput = document.getElementById('import-file-input');
   if (importFileInput) {
     importFileInput.addEventListener('change', handleImportedFileSelection);
+  }
+
+  const notesExpandButton = document.getElementById('notes-expand-btn');
+  if (notesExpandButton) {
+    notesExpandButton.addEventListener('click', () => {
+      toggleNotesExpanded();
+    });
   }
 
   const notesSearchInput = document.getElementById('notes-search-input');
@@ -1915,6 +2293,13 @@ document.addEventListener('DOMContentLoaded', () => {
       refreshActiveNotesView();
     });
   }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && notesExpanded) {
+      notesExpanded = false;
+      updateNotesExpandedUi();
+    }
+  });
 
   setNotesView('current');
   updateNotesControls();

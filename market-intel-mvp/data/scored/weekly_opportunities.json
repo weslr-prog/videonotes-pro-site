@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-03-20T01:11:14.557663Z",
+  "review_count": 5,
+  "cluster_count": 4,
+  "top_n": 20,
+  "clusters": [
+    {
+      "cluster": "trust_privacy",
+      "review_count": 1,
+      "low_star_count": 1,
+      "helpful_sum": 14,
+      "scores": {
+        "pain_severity": 5.0,
+        "frequency": 0.1,
+        "solution_gap": 3.0,
+        "build_simplicity": 3.0,
+        "monetization": 5.0,
+        "opportunity_score": 3.17
+      },
+      "samples": [
+        {
+          "reviewer": "devdalua",
+          "date": "2026-02-07",
+          "stars": 1,
+          "helpful": 14,
+          "text": "malware"
+        }
+      ]
+    },
+    {
+      "cluster": "performance",
+      "review_count": 1,
+      "low_star_count": 1,
+      "helpful_sum": 7,
+      "scores": {
+        "pain_severity": 5.0,
+        "frequency": 0.1,
+        "solution_gap": 3.0,
+        "build_simplicity": 3.0,
+        "monetization": 5.0,
+        "opportunity_score": 3.17
+      },
+      "samples": [
+        {
+          "reviewer": "Dishaan",
+          "date": "2026-01-26",
+          "stars": 2,
+          "helpful": 7,
+          "text": "it would be good if it had better graphics and wasnt laggy it is very laggy"
+        }
+      ]
+    },
+    {
+      "cluster": "missing_features",
+      "review_count": 1,
+      "low_star_count": 1,
+      "helpful_sum": 6,
+      "scores": {
+        "pain_severity": 5.0,
+        "frequency": 0.1,
+        "solution_gap": 3.0,
+        "build_simplicity": 3.0,
+        "monetization": 5.0,
+        "opportunity_score": 3.17
+      },
+      "samples": [
+        {
+          "reviewer": "amankom",
+          "date": "2025-12-21",
+          "stars": 1,
+          "helpful": 6,
+          "text": "Bad driving graphics, ai cars are dumb, no highways. please fix and add highway feature."
+        }
+      ]
+    },
+    {
+      "cluster": "other",
+      "review_count": 2,
+      "low_star_count": 0,
+      "helpful_sum": 0,
+      "scores": {
+        "pain_severity": 0.0,
+        "frequency": 0.2,
+        "solution_gap": 2.0,
+        "build_simplicity": 3.0,
+        "monetization": 1.5,
+        "opportunity_score": 1.02
+      },
+      "samples": [
+        {
+          "reviewer": "Kyle Lopez-Mikovich",
+          "date": "2026-03-19",
+          "stars": 5,
+          "helpful": 0,
+          "text": "great"
+        },
+        {
+          "reviewer": "Cường Nguyễn",
+          "date": "2026-03-19",
+          "stars": 5,
+          "helpful": 0,
+          "text": "can't go fullscreen on youtube when using this extension, great extension overall"
+        }
+      ]
+    }
+  ]
+}

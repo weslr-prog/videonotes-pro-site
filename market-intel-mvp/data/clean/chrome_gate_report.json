@@ -1,0 +1,47 @@
+{
+  "profile": "chrome",
+  "profile_settings": {
+    "platform": "chrome_web_store",
+    "allowed_domains": [
+      "chromewebstore.google.com"
+    ],
+    "blocked_domains": [
+      "support.google.com"
+    ],
+    "minimum_records": 100,
+    "max_duplicate_rate_percent": 5.0,
+    "max_empty_text_rate_percent": 10.0,
+    "language_filter": [
+      "en"
+    ],
+    "priority_categories": [
+      "video_learning_focus",
+      "productivity_workflow",
+      "research_notes_capture",
+      "web_dev_utilities",
+      "shopping_review_intel",
+      "ai_prompt_workflows",
+      "data_automation_tools",
+      "reading_writing_enhancements"
+    ]
+  },
+  "stats": {
+    "generated_at": "2026-03-20T02:29:07.867767Z",
+    "total_rows": 5,
+    "duplicate_rows": 0,
+    "empty_text_rows": 0,
+    "empty_text_rate": 0.0,
+    "domain_distribution": {
+      "chromewebstore.google.com": 5
+    },
+    "error_count": 0,
+    "warn_count": 0,
+    "status": "pass"
+  },
+  "issues": [],
+  "threshold_failures": [
+    "minimum_records failed: 5 < 100"
+  ],
+  "gate_status": "fail",
+  "input_file": "market-intel-mvp/data/raw/sample_reviews.ndjson"
+}

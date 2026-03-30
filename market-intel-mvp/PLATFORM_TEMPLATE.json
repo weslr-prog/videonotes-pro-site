@@ -1,0 +1,79 @@
+{
+  "platform": "chrome_web_store",
+  "platform_display_name": "Chrome Web Store",
+  "collection": {
+    "seed_strategy": "top_extensions_by_category",
+    "max_items_per_category": 100,
+    "max_reviews_per_item": 2000,
+    "filters": {
+      "languages": ["en"],
+      "sort": "recent"
+    }
+  },
+  "selectors": {
+    "item_name": "[platform-specific selector]",
+    "avg_rating": "[platform-specific selector]",
+    "rating_count": "[platform-specific selector]",
+    "review_card": "[platform-specific selector]",
+    "reviewer_name": "[platform-specific selector]",
+    "review_date": "[platform-specific selector]",
+    "review_stars": "[platform-specific selector]",
+    "review_text": "[platform-specific selector]",
+    "helpful_count": "[platform-specific selector]",
+    "load_more_button": "[platform-specific selector]"
+  },
+  "navigation_rules": {
+    "allowed_domains": [
+      "chromewebstore.google.com"
+    ],
+    "blocked_domains": [
+      "support.google.com"
+    ],
+    "blocked_url_contains": [
+      "cws_reviews_results"
+    ],
+    "max_pagination_clicks": 500,
+    "dom_growth_timeout_ms": 5000
+  },
+  "data_contract": {
+    "item_fields": [
+      "platform",
+      "item_name",
+      "item_id",
+      "category",
+      "install_count",
+      "avg_rating",
+      "rating_count",
+      "last_updated",
+      "source_url"
+    ],
+    "review_fields": [
+      "platform",
+      "item_id",
+      "reviewer_name",
+      "review_date",
+      "star_rating",
+      "review_text",
+      "helpful_count",
+      "language",
+      "source_url"
+    ]
+  },
+  "analysis": {
+    "cluster_labels": [
+      "reliability_bugs",
+      "performance",
+      "missing_features",
+      "ux_confusion",
+      "trust_privacy",
+      "pricing_friction"
+    ],
+    "opportunity_score_weights": {
+      "pain_severity": 0.3,
+      "frequency": 0.25,
+      "solution_gap": 0.15,
+      "build_simplicity": 0.15,
+      "monetization": 0.15
+    }
+  }
+}
