@@ -481,18 +481,137 @@ body {
   font-size: 13px;
   word-wrap: break-word;
   overflow-wrap: anywhere;
+  line-height: 1.55;
+  position: relative;
 }
 
 .note-text.note-text-truncated {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  max-height: 4.8em;
   overflow: hidden;
+}
+
+.note-text.note-text-truncated::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.6em;
+  background: linear-gradient(180deg, rgba(42, 42, 62, 0) 0%, rgba(42, 42, 62, 1) 100%);
 }
 
 .note-text.note-text-expanded {
   display: block;
-  -webkit-line-clamp: initial;
+  max-height: none;
+}
+
+.note-text.note-text-expanded::after {
+  display: none;
+}
+
+.note-text-markdown p,
+.note-text-markdown ul,
+.note-text-markdown ol,
+.note-text-markdown pre,
+.note-text-markdown blockquote,
+.note-text-markdown h1,
+.note-text-markdown h2,
+.note-text-markdown h3,
+.note-text-markdown h4,
+.note-text-markdown h5,
+.note-text-markdown h6 {
+  margin: 0 0 0.55em 0;
+}
+
+.note-text-markdown p:last-child,
+.note-text-markdown ul:last-child,
+.note-text-markdown ol:last-child,
+.note-text-markdown pre:last-child,
+.note-text-markdown blockquote:last-child,
+.note-text-markdown h1:last-child,
+.note-text-markdown h2:last-child,
+.note-text-markdown h3:last-child,
+.note-text-markdown h4:last-child,
+.note-text-markdown h5:last-child,
+.note-text-markdown h6:last-child {
+  margin-bottom: 0;
+}
+
+.note-text-markdown h1,
+.note-text-markdown h2,
+.note-text-markdown h3,
+.note-text-markdown h4,
+.note-text-markdown h5,
+.note-text-markdown h6 {
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.note-text-markdown h1 { font-size: 1.1em; }
+.note-text-markdown h2 { font-size: 1.06em; }
+.note-text-markdown h3,
+.note-text-markdown h4,
+.note-text-markdown h5,
+.note-text-markdown h6 { font-size: 1em; }
+
+.note-text-markdown ul,
+.note-text-markdown ol {
+  padding-left: 1.15em;
+}
+
+.note-text-markdown li {
+  margin: 0.2em 0;
+}
+
+.note-text-markdown li.md-task {
+  list-style: none;
+  margin-left: -1.1em;
+}
+
+.note-text-markdown li.md-task input[type='checkbox'] {
+  accent-color: #e94560;
+  margin-right: 6px;
+}
+
+.note-text-markdown blockquote {
+  border-left: 2px solid #4a4a5e;
+  padding-left: 8px;
+  color: #b7b7ca;
+}
+
+.note-text-markdown code {
+  background: #1a1a2e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+}
+
+.note-text-markdown pre {
+  background: #1a1a2e;
+  border: 1px solid #3a3a4e;
+  border-radius: 6px;
+  padding: 8px;
+  overflow-x: auto;
+}
+
+.note-text-markdown pre code {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.note-text-markdown a {
+  color: #ff8da0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.note-text-markdown a:hover {
+  color: #ffb4c0;
 }
 
 .note-quick-actions {

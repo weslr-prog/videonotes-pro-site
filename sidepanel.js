@@ -763,9 +763,14 @@ function exportNotes(exportAll = false, silent = false) {
 
 function parseImportedMarkdown(markdownText) {
   const parsed = {};
+  const stats = {
+    totalLines: 0,
+    parsedLines: 0,
+    skippedLines: 0
+  };
 
   if (!markdownText || typeof markdownText !== 'string') {
-    return parsed;
+    return { parsed, stats };
   }
 
   const lines = markdownText.split(/\r?\n/);
@@ -796,6 +801,8 @@ function parseImportedMarkdown(markdownText) {
     if (!trimmedLine) {
       return;
     }
+
+    stats.totalLines += 1;
 
     // Skip header and metadata lines
     if (trimmedLine.startsWith('# ') || trimmedLine.startsWith('_Exported:') || trimmedLine.startsWith('_Note:') || trimmedLine === '---') {
@@ -867,6 +874,7 @@ function parseImportedMarkdown(markdownText) {
         pinned: false
       });
       generatedIdOffset += 1;
+      stats.parsedLines += 1;
       return;
     }
 
@@ -903,6 +911,7 @@ function parseImportedMarkdown(markdownText) {
         pinned: false
       });
       generatedIdOffset += 1;
+      stats.parsedLines += 1;
       return;
     }
 
@@ -927,15 +936,21 @@ function parseImportedMarkdown(markdownText) {
         pinned: false
       });
       generatedIdOffset += 1;
+      stats.parsedLines += 1;
+      return;
     }
+
+    stats.skippedLines += 1;
   });
 
-  return Object.keys(parsed).reduce((accumulator, key) => {
+  const filtered = Object.keys(parsed).reduce((accumulator, key) => {
     if (Array.isArray(parsed[key]) && parsed[key].length > 0) {
       accumulator[key] = parsed[key];
     }
     return accumulator;
   }, {});
+
+  return { parsed: filtered, stats };
 }
 
 function mergeImportedNotes(parsedNotes, isPro, callback) {
@@ -1036,6 +1051,11 @@ function handleImportedFileSelection(event) {
   // Read all selected files, then merge everything in one pass
   let filesRead = 0;
   const allParsed = {};
+  const aggregateStats = {
+    totalLines: 0,
+    parsedLines: 0,
+    skippedLines: 0
+  };
 
   const onAllFilesRead = () => {
     if (Object.keys(allParsed).length === 0) {
@@ -1047,10 +1067,17 @@ function handleImportedFileSelection(event) {
     checkProStatus().then((isPro) => {
       mergeImportedNotes(allParsed, isPro, (importedCount, videosUpdated, skippedVideos) => {
         if (importedCount === 0) {
-          alert('Import complete. No new notes were added (all were duplicates).');
+          const skippedSuffix = aggregateStats.skippedLines > 0
+            ? `\nSkipped lines: ${aggregateStats.skippedLines}.`
+            : '';
+          alert(`Import complete. No new notes were added (all were duplicates).${skippedSuffix}`);
         } else {
           const fileWord = files.length > 1 ? `${files.length} files` : '1 file';
           let message = `Import complete (${fileWord}): ${importedCount} notes added across ${videosUpdated} videos.`;
+          message += `\nRecognized note lines: ${aggregateStats.parsedLines}.`;
+          if (aggregateStats.skippedLines > 0) {
+            message += `\nSkipped lines: ${aggregateStats.skippedLines}.`;
+          }
           if (!isPro && skippedVideos > 0) {
             message += ` ${skippedVideos} session(s) skipped on free plan — upgrade to Pro for full import.`;
           }
@@ -1071,7 +1098,13 @@ function handleImportedFileSelection(event) {
 
     reader.onload = () => {
       const content = typeof reader.result === 'string' ? reader.result : '';
-      const parsed = parseImportedMarkdown(content);
+      const parseResult = parseImportedMarkdown(content);
+      const parsed = parseResult.parsed || {};
+      const stats = parseResult.stats || {};
+
+      aggregateStats.totalLines += Number(stats.totalLines) || 0;
+      aggregateStats.parsedLines += Number(stats.parsedLines) || 0;
+      aggregateStats.skippedLines += Number(stats.skippedLines) || 0;
 
       // Merge parsed notes from this file into allParsed
       Object.keys(parsed).forEach((key) => {
@@ -1863,9 +1896,21 @@ function createNoteCard(note, isExternalNote) {
 
   const text = document.createElement('div');
   text.className = 'note-text';
-  text.textContent = note.noteText;
 
   const noteTextValue = String(note.noteText || '').trim();
+  const canRenderMarkdown = !!(window.MarkdownReader && typeof window.MarkdownReader.render === 'function');
+  if (canRenderMarkdown) {
+    const rendered = window.MarkdownReader.render(noteTextValue);
+    if (rendered) {
+      text.classList.add('note-text-markdown');
+      text.innerHTML = rendered;
+    } else {
+      text.textContent = noteTextValue;
+    }
+  } else {
+    text.textContent = noteTextValue;
+  }
+
   const canCollapseText = noteTextValue.length > NOTE_PREVIEW_CHARACTER_LIMIT;
   if (canCollapseText) {
     text.classList.add('note-text-truncated');
