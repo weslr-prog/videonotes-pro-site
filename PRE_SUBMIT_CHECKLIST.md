@@ -1,4 +1,4 @@
-# VideoNotes Pro — Final Pre-Submit Checklist
+# VideoNotes Pro - Final Pre-Submit Checklist
 
 ## 1) Core Functionality
 - [ ] Capture timestamp works on YouTube videos
