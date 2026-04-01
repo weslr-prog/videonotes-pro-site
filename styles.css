@@ -215,6 +215,39 @@ body {
   transform: scale(0.98);
 }
 
+.save-btn:disabled {
+  background-color: #3a3a4e;
+  color: #666;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.free-notes-countdown {
+  font-size: 11px;
+  color: #888;
+  text-align: center;
+  padding: 4px 0 0;
+  line-height: 1.4;
+}
+
+.free-notes-countdown.nearly-full {
+  color: #f5a623;
+}
+
+.free-notes-countdown.at-limit {
+  color: #e94560;
+  font-weight: 600;
+}
+
+.countdown-upgrade-link {
+  color: #e94560;
+  text-decoration: none;
+}
+
+.countdown-upgrade-link:hover {
+  text-decoration: underline;
+}
+
 /* Notes Section */
 .notes-section {
   display: flex;

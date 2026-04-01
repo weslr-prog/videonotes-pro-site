@@ -9,6 +9,7 @@ const collapsedVideoGroups = new Set();
 const selectedNoteKeys = new Set();
 const selectedSessionKeys = new Set();
 const FREE_EXPORT_IMPORT_VIDEO_LIMIT = 5;
+const FREE_NOTES_LIMIT = 25;
 let notesSearchQuery = '';
 const EXTPAY_EXTENSION_ID = 'videonote-pro';
 let isOpeningPaymentPage = false;
@@ -223,6 +224,11 @@ function isRestrictedRuntimeMessage(errorMessage) {
   return message.includes('cannot access a chrome:// url') || message.includes('cannot access this browser page');
 }
 
+function isHostPermissionRuntimeMessage(errorMessage) {
+  const message = String(errorMessage || '').toLowerCase();
+  return message.includes('extension manifest must request permission to access the respective host');
+}
+
 function getTabUrl(activeTab) {
   if (!activeTab) return '';
   return activeTab.url || activeTab.pendingUrl || '';
@@ -293,8 +299,79 @@ function sendMessageWithAutoInjection(activeTab, message, callback) {
   attemptSend(true);
 }
 
+function countTotalNotes(allData) {
+  const data = allData || {};
+  return getVideoStorageKeys(data).reduce((sum, key) => {
+    return sum + (Array.isArray(data[key]) ? data[key].length : 0);
+  }, 0);
+}
+
 function canSaveForCurrentVideo() {
-  return Promise.resolve(true);
+  return checkProStatus().then((isPro) => {
+    if (isPro) return true;
+    return new Promise((resolve) => {
+      chrome.storage.local.get(null, (allData) => {
+        const total = countTotalNotes(allData);
+        if (total >= FREE_NOTES_LIMIT) {
+          updateFreeNotesCountdown();
+          alert(`You've reached the ${FREE_NOTES_LIMIT}-note free limit.\n\nUpgrade to Pro for unlimited notes.`);
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      });
+    });
+  }).catch(() => true);
+}
+
+function updateFreeNotesCountdown() {
+  const el = document.getElementById('free-notes-countdown');
+  if (!el) return;
+
+  checkProStatus().then((isPro) => {
+    if (isPro) {
+      el.style.display = 'none';
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.title = 'Save Note';
+      }
+      return;
+    }
+
+    chrome.storage.local.get(null, (allData) => {
+      const total = countTotalNotes(allData);
+      const remaining = Math.max(0, FREE_NOTES_LIMIT - total);
+
+      el.style.display = 'block';
+
+      const upgradeHTML = `<a href="#" class="countdown-upgrade-link">Upgrade to Pro</a>`;
+
+      if (remaining === 0) {
+        el.className = 'free-notes-countdown at-limit';
+        el.innerHTML = `Note limit reached &mdash; ${upgradeHTML} for unlimited`;
+      } else if (remaining <= 5) {
+        el.className = 'free-notes-countdown nearly-full';
+        el.innerHTML = `${remaining} free note${remaining === 1 ? '' : 's'} remaining &mdash; ${upgradeHTML}`;
+      } else {
+        el.className = 'free-notes-countdown';
+        el.innerHTML = `${total} / ${FREE_NOTES_LIMIT} free notes used &mdash; ${upgradeHTML}`;
+      }
+
+      el.querySelector('.countdown-upgrade-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        openUpgradePage();
+      });
+
+      const saveBtn = document.getElementById('save-btn');
+      if (saveBtn) {
+        saveBtn.disabled = remaining === 0;
+        saveBtn.title = remaining === 0 ? 'Upgrade to Pro to save more notes' : 'Save Note';
+      }
+    });
+  }).catch(() => {
+    // On error, leave UI unchanged so saving is never silently blocked
+  });
 }
 
 function getMostRecentNoteTimestamp(notes) {
@@ -1182,8 +1259,8 @@ function initializeFromActiveTab(callback) {
 
     sendMessageWithAutoInjection(activeTab, { type: 'GET_TIMESTAMP' }, (response, errorMessage) => {
       if (errorMessage) {
-        if (isRestrictedRuntimeMessage(errorMessage)) {
-          console.info('Initialization skipped on restricted browser page.');
+        if (isRestrictedRuntimeMessage(errorMessage) || isHostPermissionRuntimeMessage(errorMessage)) {
+          console.info('Initialization skipped for tab without supported host permissions.');
         } else {
           console.warn('Initialization failed:', errorMessage);
         }
@@ -2150,6 +2227,7 @@ function renderNotes(notes, options = {}) {
   });
 
   notesList.scrollTop = 0;
+  updateFreeNotesCountdown();
 }
 
 function jumpToTimestamp(seconds, preferredUrl) {
@@ -2248,6 +2326,7 @@ function jumpToTimestamp(seconds, preferredUrl) {
 
 document.addEventListener('DOMContentLoaded', () => {
   updateNotesExpandedUi();
+  updateFreeNotesCountdown();
 
   const importFileInput = document.getElementById('import-file-input');
   if (importFileInput) {
